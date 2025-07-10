@@ -51,7 +51,7 @@
 		"NeptuneEngineVersion": {
 			"Description": "Neptune DB engine version",
 			"Type": "String",
-			"Default": "1.4.5.0"
+			"Default": "1.4.5.1"
 		},
 		"MinNCU": {
 			"Description": "Min number of NCUs (default 2.5, relevant only when instance type is db.serverless).",
@@ -874,7 +874,8 @@
 						{
 							"Effect": "Allow",
 							"Action": [
-								"neptune-db:WriteDataViaQuery"
+								"neptune-db:WriteDataViaQuery",
+								"neptune-db:DeleteDataViaQuery"
 							],
 							"Resource": {
 								"Fn::Join": [

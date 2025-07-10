@@ -13,6 +13,7 @@ from graphrag_toolkit.lexical_graph.indexing.extract.source_doc_parser import So
 from graphrag_toolkit.lexical_graph.indexing.extract import ScopedValueStore, DEFAULT_SCOPE
 from graphrag_toolkit.lexical_graph.indexing.constants import DEFAULT_ENTITY_CLASSIFICATIONS
 from graphrag_toolkit.lexical_graph.indexing.prompts import DOMAIN_ENTITY_CLASSIFICATIONS_PROMPT
+from graphrag_toolkit.lexical_graph.indexing.prompts import RANK_ENTITY_CLASSIFICATIONS_PROMPT
 
 from llama_index.core.schema import BaseNode
 from llama_index.core.node_parser import SentenceSplitter
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_NUM_SAMPLES = 5
 DEFAULT_NUM_ITERATIONS = 1
+DEFAULT_NUM_CLASSIFICATIONS = 15
 
 class InferClassifications(SourceDocParser):
     """
@@ -77,6 +79,10 @@ class InferClassifications(SourceDocParser):
         description='Number times to sample documents'
     )
 
+    num_classifications:int = Field(
+        description='Number of classifications to return'
+    )
+
     splitter:Optional[SentenceSplitter] = Field(
         description='Chunk splitter'
     )
@@ -89,6 +95,10 @@ class InferClassifications(SourceDocParser):
         description='Prompt template'
     )
 
+    rank_prompt_template:str = Field(
+        description='Prompt template'
+    )
+
     default_classifications:List[str] = Field(
         'Default classifications'
     )
@@ -97,15 +107,19 @@ class InferClassifications(SourceDocParser):
         'Action to take if there are existing classifications'
     )
 
+    
+
     def __init__(self,
                  classification_store:ScopedValueStore,
                  classification_label:str,
                  classification_scope:Optional[str]=None,
                  num_samples:Optional[int]=None, 
                  num_iterations:Optional[int]=None,
+                 num_classifications:Optional[int]=None,
                  splitter:Optional[SentenceSplitter]=None,
                  llm:Optional[LLMCacheType]=None,
                  prompt_template:Optional[str]=None,
+                 rank_prompt_template:Optional[str]=None,
                  default_classifications:Optional[List[str]]=None,
                  merge_action:Optional[OnExistingClassifications]=None
             ):
@@ -140,12 +154,14 @@ class InferClassifications(SourceDocParser):
             classification_scope=classification_scope or DEFAULT_SCOPE,
             num_samples=num_samples or DEFAULT_NUM_SAMPLES,
             num_iterations=num_iterations or DEFAULT_NUM_ITERATIONS,
+            num_classifications=num_classifications or DEFAULT_NUM_CLASSIFICATIONS,
             splitter=splitter,
             llm=llm if llm and isinstance(llm, LLMCache) else LLMCache(
                 llm=llm or GraphRAGConfig.extraction_llm,
                 enable_cache=GraphRAGConfig.enable_cache
             ),
             prompt_template=prompt_template or DOMAIN_ENTITY_CLASSIFICATIONS_PROMPT,
+            rank_prompt_template=prompt_template or RANK_ENTITY_CLASSIFICATIONS_PROMPT,
             default_classifications=default_classifications or DEFAULT_ENTITY_CLASSIFICATIONS,
             merge_action=merge_action or OnExistingClassifications.RETAIN_EXISTING
         )
@@ -211,10 +227,28 @@ class InferClassifications(SourceDocParser):
             List[BaseNode]: A list of nodes passed as input after completing the
             classification process.
         """
+
+        seed_scope = f'{self.classification_scope}-seed'
+
         current_values = self.classification_store.get_scoped_values(self.classification_label, self.classification_scope)
+
         if current_values and self.merge_action == OnExistingClassifications.RETAIN_EXISTING:
             logger.info(f'Domain-specific classifications already exist [label: {self.classification_label}, scope: {self.classification_scope}, classifications: {current_values}]')
             return nodes
+        
+        seed_values = self.classification_store.get_scoped_values(self.classification_label, seed_scope)
+
+        if not seed_values:
+            seed_values = current_values
+            self.classification_store.save_scoped_values(self.classification_label, seed_scope, seed_values)
+
+        logger.info(f'Seed values    [label: {self.classification_label}, scope: {seed_scope}, classifications: {seed_values}]')   
+        logger.info(f'Current values [label: {self.classification_label}, scope: {self.classification_scope}, classifications: {current_values}]')
+        
+        existing_classifications_map = {k:None for k in (seed_values + current_values)}
+        existing_classifications = list(existing_classifications_map.keys())
+
+        logger.info(f'Existing classifications: {existing_classifications}')
 
         chunks = self.splitter(nodes) if self.splitter else nodes
 
@@ -230,19 +264,29 @@ class InferClassifications(SourceDocParser):
                 
             response = self.llm.predict(
                 PromptTemplate(self.prompt_template),
-                text_chunks=formatted_chunks
+                text_chunks=formatted_chunks,
+                existing_classifications='\n'.join(existing_classifications) if OnExistingClassifications.MERGE_EXISTING else ''
             )
 
             classifications.update(self._parse_classifications(response))
 
-        if current_values and self.merge_action == OnExistingClassifications.MERGE_EXISTING:
-            classifications.update(current_values)
+        #if current_values and self.merge_action == OnExistingClassifications.MERGE_EXISTING:
+        #    classifications.update(current_values)
             
-        classifications = list(classifications)
+        all_classifications = list(classifications)
 
-        if classifications:
-            logger.info(f'Domain adaptation succeeded [label: {self.classification_label}, scope: {self.classification_scope}, classifications: {classifications}]')
-            self.classification_store.save_scoped_values(self.classification_label, self.classification_scope, classifications)
+        if all_classifications:
+            
+            formatted_classifications = '\n'.join([c.title() for c in all_classifications])
+            response = self.llm.predict(
+                PromptTemplate(self.rank_prompt_template),
+                classifications=formatted_classifications
+            )
+            ranked_classifications = self._parse_classifications(response)[:self.num_classifications]
+
+            logger.info(f'Domain adaptation succeeded [label: {self.classification_label}, scope: {self.classification_scope}, all_classifications: {all_classifications}, ranked_classification: {ranked_classifications}]')
+            self.classification_store.save_scoped_values(self.classification_label, self.classification_scope, ranked_classifications)
+        
         else:
             logger.warning(f'Domain adaptation failed, using default classifications [label: {self.classification_label}, scope: {self.classification_scope}, classifications: {self.default_classifications}]')
             self.classification_store.save_scoped_values(self.classification_label, self.classification_scope, self.default_classifications)

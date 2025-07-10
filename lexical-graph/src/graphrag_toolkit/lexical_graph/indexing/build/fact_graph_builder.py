@@ -9,6 +9,7 @@ from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.graph.graph_utils import label_from
 from graphrag_toolkit.lexical_graph.indexing.build.graph_builder import GraphBuilder
 from graphrag_toolkit.lexical_graph.indexing.constants import DEFAULT_CLASSIFICATION
+from graphrag_toolkit.lexical_graph.indexing.utils.fact_utils import string_complement_to_entity
 
 from llama_index.core.schema import BaseNode
 
@@ -68,6 +69,8 @@ class FactGraphBuilder(GraphBuilder):
         if fact_metadata:
 
             fact = Fact.model_validate(fact_metadata)
+
+            fact = string_complement_to_entity(fact)
         
             logger.debug(f'Inserting fact [fact_id: {fact.factId}]')
 
@@ -86,7 +89,7 @@ class FactGraphBuilder(GraphBuilder):
             ])
 
             if include_domain_labels:
-                statements.append(f'MERGE (subject:`__Entity__`:{label_from(fact.subject.classification or DEFAULT_CLASSIFICATION)}{{{graph_client.node_id("entityId")}: params.s_id}})')
+                statements.append(f'MERGE (subject:`__Entity__`:`{label_from(fact.subject.classification or DEFAULT_CLASSIFICATION)}`{{{graph_client.node_id("entityId")}: params.s_id}})')
             else:
                 statements.append(f'MERGE (subject:`__Entity__`{{{graph_client.node_id("entityId")}: params.s_id}})')
 
@@ -103,7 +106,7 @@ class FactGraphBuilder(GraphBuilder):
             if fact.object:
 
                 if include_domain_labels:
-                    statements.append(f'MERGE (object:`__Entity__`:{label_from(fact.object.classification or DEFAULT_CLASSIFICATION)}{{{graph_client.node_id("entityId")}: params.o_id}})')
+                    statements.append(f'MERGE (object:`__Entity__`:`{label_from(fact.object.classification or DEFAULT_CLASSIFICATION)}`{{{graph_client.node_id("entityId")}: params.o_id}})')
                 else:
                     statements.append(f'MERGE (object:`__Entity__`{{{graph_client.node_id("entityId")}: params.o_id}})')
 
@@ -111,6 +114,19 @@ class FactGraphBuilder(GraphBuilder):
 
                 properties.update({                
                     'o_id': fact.object.entityId
+                })
+
+            elif fact.complement:
+
+                if include_domain_labels:
+                    statements.append(f'MERGE (object:`__Entity__`:`{label_from(fact.complement.classification or DEFAULT_CLASSIFICATION)}`{{{graph_client.node_id("entityId")}: params.o_id}})')
+                else:
+                    statements.append(f'MERGE (object:`__Entity__`{{{graph_client.node_id("entityId")}: params.o_id}})')
+
+                statements.append(f'MERGE (object)-[:`__OBJECT__`]->(fact)')
+
+                properties.update({                
+                    'o_id': fact.complement.entityId
                 })
         
             query = '\n'.join(statements)
@@ -133,9 +149,9 @@ class FactGraphBuilder(GraphBuilder):
 
             query = '\n'.join(statements)
                 
-            graph_client.execute_query_with_retry(query, self._to_params(properties))
+            graph_client.execute_query_with_retry(query, self._to_params(properties), max_attempts=5, max_wait=7)
 
-            if fact.object:
+            if fact.object or fact.complement:
 
                 statements = [
                     '// insert connection to next facts',
@@ -153,7 +169,7 @@ class FactGraphBuilder(GraphBuilder):
 
                 query = '\n'.join(statements)
                     
-                graph_client.execute_query_with_retry(query, self._to_params(properties))
+                graph_client.execute_query_with_retry(query, self._to_params(properties), max_attempts=5, max_wait=7)
            
 
         else:

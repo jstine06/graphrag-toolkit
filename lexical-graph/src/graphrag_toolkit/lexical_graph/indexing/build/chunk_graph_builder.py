@@ -93,20 +93,23 @@ class ChunkGraphBuilder(GraphBuilder):
                 key_index += 1
                 key = f'node_relationship_{key_index}'
                 node_id = relationship_info.node_id
-                properties[key] = node_id
 
                 if node_relationship == NodeRelationship.PARENT:
                     statements.append(f'MERGE (parent:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.{key}}})')
                     statements.append('MERGE (chunk)-[:`__PARENT__`]->(parent)')
+                    properties[key] = node_id
                 if node_relationship == NodeRelationship.CHILD:
                     statements.append(f'MERGE (child:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.{key}}})')
                     statements.append('MERGE (chunk)-[:`__CHILD__`]->(child)')
+                    properties[key] = node_id
                 elif node_relationship == NodeRelationship.PREVIOUS:
                     statements.append(f'MERGE (previous:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.{key}}})')
                     statements.append('MERGE (chunk)-[:`__PREVIOUS__`]->(previous)')
+                    properties[key] = node_id
                 elif node_relationship == NodeRelationship.NEXT:
                     statements.append(f'MERGE (next:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.{key}}})')
                     statements.append('MERGE (chunk)-[:`__NEXT__`]->(next)')
+                    properties[key] = node_id
                             
             query = '\n'.join(statements)
 

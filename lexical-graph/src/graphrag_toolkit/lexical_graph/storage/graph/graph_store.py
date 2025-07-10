@@ -183,7 +183,9 @@ class RedactedGraphQueryLogFormatting(GraphQueryLogFormatting):
             GraphQueryLogEntryParameters: An instance containing the formatted and
             redacted log entry details.
         """
-        return GraphQueryLogEntryParameters(query_ref=query_ref, query=REDACTED, parameters=REDACTED, results=REDACTED)
+        lines = query.split('\n')
+        redacted_query = '\n'.join(line for line in lines if line.startswith('//')) 
+        return GraphQueryLogEntryParameters(query_ref=query_ref, query=redacted_query or REDACTED, parameters=REDACTED, results=REDACTED)
     
 class NonRedactedGraphQueryLogFormatting(GraphQueryLogFormatting):
     def format_log_entry(self, query_ref:str, query:str, parameters:Dict[str,Any]={}, results:Optional[List[Any]]=None) -> GraphQueryLogEntryParameters:

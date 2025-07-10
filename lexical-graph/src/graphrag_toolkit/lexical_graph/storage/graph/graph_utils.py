@@ -46,6 +46,9 @@ def label_from(value:str):
     Returns:
         str: The modified label-like output string.
     """
+    if value.startswith('__') and value.endswith('__'):
+        return value
+    
     value = SEARCH_STRING_PATTERN.sub(' ', value)
     return string.capwords(value).replace(' ', '')
 

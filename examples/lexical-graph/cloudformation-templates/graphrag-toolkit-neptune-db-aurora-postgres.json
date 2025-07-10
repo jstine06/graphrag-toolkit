@@ -13,7 +13,7 @@
 		"NeptuneEngineVersion": {
 			"Description": "Neptune DB engine version",
 			"Type": "String",
-			"Default": "1.4.5.0"
+			"Default": "1.4.5.1"
 		},
 		"NeptuneDbInstanceType": {
 			"Description": "Neptune DB instance type (use db.serverless to provision a Neptune Serverless cluster)",
@@ -825,7 +825,8 @@
 						{
 							"Effect": "Allow",
 							"Action": [
-								"neptune-db:WriteDataViaQuery"
+								"neptune-db:WriteDataViaQuery",
+								"neptune-db:DeleteDataViaQuery"
 							],
 							"Resource": {
 								"Fn::Join": [

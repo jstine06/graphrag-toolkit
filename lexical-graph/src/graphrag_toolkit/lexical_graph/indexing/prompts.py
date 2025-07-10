@@ -2,21 +2,54 @@
 # SPDX-License-Identifier: Apache-2.0
 
 DOMAIN_ENTITY_CLASSIFICATIONS_PROMPT = """
-You are an expert system analyzing text to identify domain-specific entity types. Based on the provided text samples, identify the most significant entity classifications for this domain.
+You are an expert system analyzing text to identify domain-specific entity types. Based on the provided text samples and list of existing classifications, identify the 5 most significant entity classifications for this domain.
 
 Guidelines:
-1. Identify specific types of entities that appear in or are relevant to the domain
-2. Use clear, concise classification names (1-2 words)
-3. Aim for 10-15 classifications
-4. Format each classification as a single word or multiple words separated by a space
-5. Focus on concrete entities, not abstract concepts
+1. Identify the most important specific types of entities that appear in or are relevant to the domain
+2. Reuse existing classifications where possible
+3. Focus on concrete entities, not abstract concepts
+4. DO NOT treat numerical values, dates, times, measurements, or object attributes (e.g. size, colour) as entities
+5. Use clear, concise classification names (1-2 words)
+6. Use the singular, not plural, form for each classification
+7. Aim for 5 classifications
+8. Format each classification as a single word, or multiple words separated by a space
+9. Do not use underscores or any other punctuation
 
 Sample text chunks:
 <chunks>
 {text_chunks}
 </chunks>
 
+Existing classifications:
+<existing_classifications>
+{existing_classifications}
+</existing_classifications>
+
 Output the classifications between entity_classifications tags, one per line.
+
+Expected format:
+<entity_classifications>
+Classification1
+Classification2
+Classification3
+</entity_classifications>
+"""
+
+RANK_ENTITY_CLASSIFICATIONS_PROMPT = """
+You are an expert system analyzing text to rank domain-specific entity types. Order the list of entity classifications below, most important classifications first.
+
+Guidelines:
+1. If the classifications cover multiple domains, choose high-level classifications across domains, rather than going deep into a single domain
+2. Eliminate synonyms
+3. Convert plural forms to the singluar form, if necessary
+4. If you can identify a broader classification that covers several classifications, use the broader classification
+
+Original classifications:
+<classifications>
+{classifications}
+</classifications>
+
+Output the ranked classifications between entity_classifications tags, one per line.
 
 Expected format:
 <entity_classifications>
@@ -114,8 +147,8 @@ Try to capture as much information from the text as possible without sacrificing
    3. Ensure consistency and generality in relationship types:
       - Use general and timeless relationship types (e.g., 'VALUE' instead of 'HAD_VALUE').
       - Avoid overly specific or momentary relationship types.
-      - Prefer one- or two-word relationship types.
-      - Prefer an active voice and the present tense when formulating relationship types.
+      - Use one- or two-word relationship types.
+      - Use an active voice and the present tense when formulating relationship types.
    4. Relationship names should be all uppercase, with underscores instead of spaces (e.g. 'DESCRIBED_BY')
 
    Example: John Doe|OCCUPATION|software engineer
@@ -126,8 +159,8 @@ Try to capture as much information from the text as possible without sacrificing
    3. Ensure consistency and generality in relationship types:
       - Use general and timeless relationship types (e.g., 'PROFESSOR' instead of 'BECAME_PROFESSOR').
       - Avoid overly specific or momentary relationship types.
-      - Prefer one- or two-word relationship types.
-      - Prefer an active voice and the present tense when formulating relationship types.
+      - Use one- or two-word relationship types.
+      - Use an active voice and the present tense when formulating relationship types.
    4. Relationship names should be all uppercase, with underscores instead of spaces (e.g. 'WORKS_FOR')
    5. Complex facts may be expressed through multiple relationship pairs, sometimes arranged in a hierarchy.
 

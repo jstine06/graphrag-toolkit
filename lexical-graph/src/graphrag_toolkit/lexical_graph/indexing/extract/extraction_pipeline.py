@@ -340,10 +340,10 @@ class ExtractionPipeline():
 
         input_source_documents = source_documents_from_source_types(inputs)
 
-        for pre_processor in self.pre_processors:
-            input_source_documents = pre_processor.parse_source_docs(input_source_documents)
-
         for source_documents in iter_batch(input_source_documents, self.batch_size):
+
+            for pre_processor in self.pre_processors:
+                source_documents = pre_processor.parse_source_docs(source_documents)
 
             source_documents = self.id_rewriter.handle_source_docs(source_documents)
             source_documents = self.extraction_decorator.handle_input_docs(source_documents)
