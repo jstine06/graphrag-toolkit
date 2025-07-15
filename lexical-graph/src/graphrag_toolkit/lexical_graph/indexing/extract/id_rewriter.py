@@ -69,7 +69,7 @@ class IdRewriter(NodeParser, DoNotCheckpoint):
         Returns:
             str: A newly generated document ID.
         """
-        metadata_str = self._get_properties_str(node.metadata, node.doc_id)  
+        metadata_str = self._get_properties_str(node.metadata, '')  
         return self.id_generator.create_source_id(str(node.text), metadata_str)     
         
     def _new_node_id(self, node):
@@ -91,7 +91,7 @@ class IdRewriter(NodeParser, DoNotCheckpoint):
         """
         source_info = node.relationships.get(NodeRelationship.SOURCE, None)
         source_id = source_info.node_id if source_info else f'aws:{uuid.uuid4().hex}' 
-        metadata_str = self._get_properties_str(node.metadata, node.node_id) 
+        metadata_str = self._get_properties_str(node.metadata, '') 
 
         return self.id_generator.create_chunk_id(source_id, str(node.text), metadata_str)
         

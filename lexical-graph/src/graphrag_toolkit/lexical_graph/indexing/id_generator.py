@@ -1,12 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import hashlib
 from typing import Optional
 
 from graphrag_toolkit.lexical_graph import TenantId
+from graphrag_toolkit.lexical_graph.indexing.utils.hash_utils import get_hash
 
-from llama_index.core.bridge.pydantic import BaseModel, Field
+from llama_index.core.bridge.pydantic import BaseModel
 
 class IdGenerator(BaseModel):
     """
@@ -41,7 +41,7 @@ class IdGenerator(BaseModel):
         Returns:
             The hexadecimal representation of the MD5 hash of the input string.
         """
-        return hashlib.md5(s.encode('utf-8')).digest().hex()
+        return get_hash(s)
 
     def create_source_id(self, text:str, metadata_str:str):
         """

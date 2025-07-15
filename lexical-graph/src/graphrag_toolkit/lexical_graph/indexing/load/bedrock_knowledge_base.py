@@ -19,6 +19,7 @@ from graphrag_toolkit.lexical_graph.indexing import IdGenerator
 from graphrag_toolkit.lexical_graph.indexing.load.file_based_chunks import FileBasedChunks
 from graphrag_toolkit.lexical_graph.indexing.model import SourceDocument
 from graphrag_toolkit.lexical_graph.indexing.extract.id_rewriter import IdRewriter
+from graphrag_toolkit.lexical_graph.indexing.utils.hash_utils import get_hash
 from graphrag_toolkit.lexical_graph import GraphRAGConfig
 
 from llama_index.core.schema import TextNode, Document

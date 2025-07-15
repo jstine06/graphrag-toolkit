@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Union, Dict, Generator, Iterable
 
 from llama_index.core.schema import TextNode, Document, BaseNode
-from llama_index.core.schema import NodeRelationship
+from llama_index.core.schema import NodeRelationship, RelatedNodeInfo
 
 class SourceDocument(BaseModel):
     """
