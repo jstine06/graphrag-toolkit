@@ -3,6 +3,7 @@
 
 import re
 import string
+import uuid
 from typing import Any, List, Optional, Callable
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig, type_name_for_key_value, format_datetime
@@ -11,6 +12,9 @@ from graphrag_toolkit.lexical_graph.storage.graph.graph_store import NodeId
 from llama_index.core.vector_stores.types import FilterCondition, FilterOperator, MetadataFilter, MetadataFilters
 
 SEARCH_STRING_PATTERN = re.compile(r'([^\s\w]|_)+')
+
+def new_query_var():
+    return f'n{uuid.uuid4().hex[:5]}'
 
 def search_string_from(value:str):
     """
