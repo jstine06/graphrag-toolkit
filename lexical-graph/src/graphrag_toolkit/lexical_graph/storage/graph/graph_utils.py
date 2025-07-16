@@ -14,7 +14,7 @@ from llama_index.core.vector_stores.types import FilterCondition, FilterOperator
 SEARCH_STRING_PATTERN = re.compile(r'([^\s\w]|_)+')
 
 def new_query_var():
-    return f'n{uuid.uuid4().hex[:5]}'
+    return f'n{uuid.uuid4().hex}'
 
 def search_string_from(value:str):
     """
