@@ -209,21 +209,26 @@ class EntityContextProvider():
     def get_entity_contexts(self, entities:List[ScoredEntity], query_bundle:QueryBundle)  -> List[List[ScoredEntity]]:
 
         start = time.time()
-        
-        entity_id_context_tree = self._get_entity_id_context_tree(entities)
-        
-        neighbour_entities = self._get_neighbour_entities(
-            entity_id_context_tree=entity_id_context_tree,
-            baseline_score=entities[0].score
-        )
 
-        entities.extend(neighbour_entities)     
-      
-        entity_contexts = self._get_entity_contexts(
-            entities=entities,
-            entity_id_context_tree=entity_id_context_tree,
-            query_bundle=query_bundle
-        )
+        if entities:
+        
+            entity_id_context_tree = self._get_entity_id_context_tree(entities)
+            
+            neighbour_entities = self._get_neighbour_entities(
+                entity_id_context_tree=entity_id_context_tree,
+                baseline_score=entities[0].score
+            )
+
+            entities.extend(neighbour_entities)     
+        
+            entity_contexts = self._get_entity_contexts(
+                entities=entities,
+                entity_id_context_tree=entity_id_context_tree,
+                query_bundle=query_bundle
+            )
+
+        else:
+            entity_contexts = []
 
         end = time.time()
         duration_ms = (end-start) * 1000

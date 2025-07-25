@@ -94,21 +94,25 @@ class TopicBasedSearch(TraversalBasedBaseRetriever):
         Raises:
             Any error or exception raised by the `self.graph_store.execute_query` method.
         """
-        cypher = self.create_cypher_query(f'''
-        // topic-based graph search                                  
+
+        cypher = f'''// topic-based graph search                                  
         MATCH (f:`__Fact__`)-[:`__NEXT__`*0..1]-(:`__Fact__`)-[:`__SUPPORTS__`]->(:`__Statement__`)-[:`__BELONGS_TO__`]->(tt:`__Topic__`)
         WHERE {self.graph_store.node_id("tt.topicId")} = $topicId
         WITH f LIMIT $statementLimit
-        MATCH (f)-[:`__SUPPORTS__`]->(:`__Statement__`)-[:`__PREVIOUS__`*0..2]-(l:`__Statement__`)-[:`__BELONGS_TO__`]->(t:`__Topic__`)
-        ''')
+        MATCH (f)-[:`__SUPPORTS__`]->(:`__Statement__`)-[:`__PREVIOUS__`*0..2]-(l:`__Statement__`)
+        RETURN DISTINCT id(l) AS l LIMIT $statementLimit
+        '''
                                   
         properties = {
             'topicId': topic_id,
-            'limit': self.args.query_limit,
             'statementLimit': self.args.intermediate_limit
         }
-                                          
-        return self.graph_store.execute_query(cypher, properties)
+
+        results = self.graph_store.execute_query(cypher, properties)
+        statement_ids = [r['l'] for r in results]
+
+        return self.get_statements_by_topic_and_source(statement_ids)
+        
 
     def get_start_node_ids(self, query_bundle: QueryBundle) -> List[str]:
         """

@@ -84,19 +84,22 @@ class ChunkBasedSearch(TraversalBasedBaseRetriever):
             List[dict]: A list of results retrieved from the graph database based on the
             provided chunk ID and query parameters.
         """
-        cypher = self.create_cypher_query(f'''
-        // chunk-based graph search                                  
-        MATCH (l:`__Statement__`)-[:`__PREVIOUS__`*0..1]-(:`__Statement__`)-[:`__BELONGS_TO__`]->(t:`__Topic__`)-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
+
+        cypher = f'''// chunk-based graph search                                  
+        MATCH (l:`__Statement__`)-[:`__PREVIOUS__`*0..1]-(:`__Statement__`)-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
         WHERE {self.graph_store.node_id("c.chunkId")} = $chunkId
-        ''')
-                                          
+        RETURN DISTINCT id(l) AS l LIMIT $statementLimit
+        '''
+
         properties = {
             'chunkId': chunk_id,
-            'limit': self.args.query_limit,
             'statementLimit': self.args.intermediate_limit
         }
-                                          
-        return self.graph_store.execute_query(cypher, properties)
+
+        results = self.graph_store.execute_query(cypher, properties)
+        statement_ids = [r['l'] for r in results]
+
+        return self.get_statements_by_topic_and_source(statement_ids)
 
 
     def get_start_node_ids(self, query_bundle: QueryBundle) -> List[str]:

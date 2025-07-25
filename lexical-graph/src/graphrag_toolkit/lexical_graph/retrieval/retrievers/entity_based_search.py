@@ -140,9 +140,8 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
             Any exceptions raised during graph query creation or execution.
         """
         logger.debug(f'Starting multiple-entity-based searches for [start_id: {start_id}, end_ids: {end_ids}]')
-        
-        cypher = self.create_cypher_query(f''' 
-        // multiple entity-based graph search                                                                
+
+        cypher = f'''// multiple entity-based graph search                                                                
         MATCH p=(e1:`__Entity__`{{{self.graph_store.node_id("entityId")}:$startId}})-[:`__RELATION__`*1..2]-(e2:`__Entity__`) 
         WHERE {self.graph_store.node_id("e2.entityId")} in $endIds
         UNWIND nodes(p) AS n
@@ -150,18 +149,20 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
         MATCH (s:`__Entity__`)-[:`__SUBJECT__`]->(f:`__Fact__`)<-[:`__OBJECT__`]-(o:`__Entity__`),
             (f)-[:`__SUPPORTS__`]->(:`__Statement__`)
             -[:`__PREVIOUS__`*0..1]-(l:`__Statement__`)
-            -[:`__BELONGS_TO__`]->(t:`__Topic__`)
         WHERE s in entities and o in entities
-        ''')
-            
+        RETURN DISTINCT id(l) AS l LIMIT $statementLimit
+        '''
+
         properties = {
             'startId': start_id,
             'endIds': end_ids,
-            'statementLimit': self.args.intermediate_limit,
-            'limit': self.args.query_limit
+            'statementLimit': self.args.intermediate_limit
         }
-            
-        return self.graph_store.execute_query(cypher, properties)
+
+        results = self.graph_store.execute_query(cypher, properties)
+        statement_ids = [r['l'] for r in results]
+
+        return self.get_statements_by_topic_and_source(statement_ids)
            
 
     def _single_entity_based_graph_search(self, entity_id, query:QueryBundle):
@@ -182,22 +183,22 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
         """
         logger.debug(f'Starting single-entity-based search for [entity_id: {entity_id}]')
             
-        cypher = self.create_cypher_query(f''' 
-        // single entity-based graph search                            
+        cypher = f'''// single entity-based graph search                            
         MATCH (:`__Entity__`{{{self.graph_store.node_id("entityId")}:$startId}})
             -[:`__SUBJECT__`]->(f:`__Fact__`)
             -[:`__SUPPORTS__`]->(:`__Statement__`)
             -[:`__PREVIOUS__`*0..1]-(l:`__Statement__`)
-            -[:`__BELONGS_TO__`]->(t:`__Topic__`)''')
+        RETURN DISTINCT id(l) AS l LIMIT $statementLimit'''
             
         properties = {
             'startId': entity_id,
-            'statementLimit': self.args.intermediate_limit,
-            'limit': self.args.query_limit
+            'statementLimit': self.args.intermediate_limit
         }
-            
-        return self.graph_store.execute_query(cypher, properties)
-            
+
+        results = self.graph_store.execute_query(cypher, properties)
+        statement_ids = [r['l'] for r in results]
+
+        return self.get_statements_by_topic_and_source(statement_ids)
     
     def do_graph_search(self, query_bundle:QueryBundle, start_node_ids:List[str]) -> SearchResultCollection:
         """

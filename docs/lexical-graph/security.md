@@ -54,7 +54,8 @@ To allow your application to write data to an Amazon Neptune database, attach th
             "Sid": "NeptuneDBWriteAccessStatement",
             "Effect": "Allow",
             "Action": [
-                "neptune-db:WriteDataViaQuery"
+                "neptune-db:WriteDataViaQuery",
+                "neptune-db:DeleteDataViaQuery"
             ],
             "Resource": "arn:aws:neptune-db:<region>:<account-id>:<cluster-resource-id>/*",
             "Condition": {

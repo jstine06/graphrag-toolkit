@@ -121,6 +121,67 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         self.entity_contexts:List[List[ScoredEntity]] = entity_contexts or []
         self.filter_config = filter_config or FilterConfig()
         
+    def get_statements_by_topic_and_source(self, statement_ids):
+
+        statements_params = {
+            'statementLimit': self.args.intermediate_limit,
+            'limit': self.args.query_limit,
+            'statementIds': statement_ids
+        }
+
+        statements_cypher = f'''
+        // get statements grouped by topic and source
+        MATCH (t:`__Topic__`)<-[:`__BELONGS_TO__`]-(l:`__Statement__`)   
+              -[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
+              -[:`__EXTRACTED_FROM__`]->(s:`__Source__`)
+        WHERE {self.graph_store.node_id("l.statementId")} in $statementIds
+        WITH {{ sourceId: {self.graph_store.node_id("s.sourceId")}, metadata: s{{.*}}}} AS source,
+            t, l, c,
+            {{ chunkId: {self.graph_store.node_id("c.chunkId")}, value: NULL }} AS cc, 
+            {{ statementId: {self.graph_store.node_id("l.statementId")}, statement: l.value, facts: [], details: l.details, chunkId: {self.graph_store.node_id("c.chunkId")}, score: 0 }} as ll
+        WITH source, 
+            t, 
+            collect(distinct cc) as chunks, 
+            collect(ll) as statements
+        WITH source,
+            {{ 
+                topic: t.value, 
+                chunks: chunks,
+                statements: statements
+            }} as topic
+        RETURN {{
+            score: sum(size(topic.statements)/size(topic.chunks)), 
+            source: source,
+            topics: collect(topic)
+        }} as result ORDER BY result.score DESC LIMIT $limit'''
+        
+        statements_results =  self.graph_store.execute_query(statements_cypher, statements_params)
+    
+        statement_facts_cypher = f'''MATCH (f:`__Fact__`)-[:`__SUPPORTS__`]->(l:`__Statement__`)
+        WHERE {self.graph_store.node_id("l.statementId")} in $statementIds
+        RETURN id(l) AS statementId, collect(distinct f.value) AS facts'''
+
+        statement_facts_params = {
+            'statementIds': statement_ids
+        }
+
+        statement_facts_results = self.graph_store.execute_query(statement_facts_cypher, statement_facts_params)
+
+        statement_facts = {
+            r['statementId']:r['facts'] for r in statement_facts_results
+        }
+
+        for statements_result in statements_results:
+            result = statements_result['result']
+            for topic in result['topics']:
+                for statement in topic['statements']:
+                    facts = statement_facts.get(statement['statementId'], [])
+                    if facts:
+                        statement['facts'] = facts
+                        statement['score'] = len(facts)
+
+        return statements_results
+    
     def create_cypher_query(self, match_clause):
         """
         Constructs a Cypher query string based on the provided match clause, tailoring it to retrieve data from a graph database.

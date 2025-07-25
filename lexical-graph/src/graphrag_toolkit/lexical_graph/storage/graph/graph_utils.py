@@ -3,8 +3,8 @@
 
 import re
 import string
-import uuid
 from typing import Any, List, Optional, Callable
+import uuid
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig, type_name_for_key_value, format_datetime
 from graphrag_toolkit.lexical_graph.storage.graph.graph_store import NodeId

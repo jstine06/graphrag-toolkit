@@ -9,7 +9,7 @@ from tenacity import Retrying, stop_after_attempt, wait_random
 from tenacity import RetryCallState
 from typing import Callable, List, Dict, Any, Optional
 
-from graphrag_toolkit.lexical_graph import TenantId
+from graphrag_toolkit.lexical_graph import TenantId, GraphQueryError
 
 from llama_index.core.bridge.pydantic import BaseModel, Field
 
@@ -394,18 +394,24 @@ class GraphStore(BaseModel):
 
         log_entry_parameters = self.log_formatting.format_log_entry(f'{correlation_id}/*', query, parameters)
 
-        attempt_number = 0
-        for attempt in Retrying(
-            stop=stop_after_attempt(max_attempts), 
-            wait=wait_random(min=0, max=max_wait),
-            before_sleep=on_retry_query(logger, logging.WARNING, log_entry_parameters), 
-            after=on_query_failed(logger, logging.WARNING, max_attempts, log_entry_parameters),
-            reraise=True
-        ):
-            with attempt:
-                attempt_number += 1
-                attempt.retry_state.attempt_number
-                return self._execute_query(query, parameters, **kwargs)
+        try:
+
+            attempt_number = 0
+            for attempt in Retrying(
+                stop=stop_after_attempt(max_attempts), 
+                wait=wait_random(min=0, max=max_wait),
+                before_sleep=on_retry_query(logger, logging.WARNING, log_entry_parameters), 
+                after=on_query_failed(logger, logging.WARNING, max_attempts, log_entry_parameters),
+                reraise=True
+            ):
+                with attempt:
+                    attempt_number += 1
+                    attempt.retry_state.attempt_number
+                    return self._execute_query(query, parameters, **kwargs)
+            
+        except Exception as e:
+            raise GraphQueryError(f'{str(e)} [query_ref: {log_entry_parameters.query_ref}, query: {log_entry_parameters.query}, parameters: {log_entry_parameters.parameters}]')
+    
 
     def _logging_prefix(self, query_id:str, correlation_id:Optional[str]=None):
         """

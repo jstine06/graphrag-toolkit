@@ -172,10 +172,11 @@ class GraphBatchClient():
                 self.graph_client.execute_query_with_retry(query, params, max_attempts=5, max_wait=7)
 
         parameterless_queries = list(self.parameterless_queries.values())
+        parameterless_batch_write_size = min(25, self.batch_write_size)
 
         parameterless_query_batches = [
-            parameterless_queries[x:x+self.batch_write_size] 
-            for x in range(0, len(parameterless_queries), self.batch_write_size)
+            parameterless_queries[x:x+parameterless_batch_write_size] 
+            for x in range(0, len(parameterless_queries), parameterless_batch_write_size)
         ]
 
         for parameterless_query_batch in parameterless_query_batches:
