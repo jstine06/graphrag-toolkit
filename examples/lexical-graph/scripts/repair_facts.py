@@ -309,7 +309,7 @@ def create_fact_next_relation(graph_store, facts):
         '// insert connection to prev facts',
         'UNWIND $params AS params',
         f'MATCH (fact:`__Fact__`{{{graph_store.node_id("factId")}: params.fact_id}})<-[:`__SUBJECT__`]-(:`__Entity__`)-[:`__OBJECT__`]->(prevFact:`__Fact__`)',
-        'WHERE fact <> prevFact and NOT ((fact)<-[:`__NEXT__`]-(prevFact))',
+        'WHERE fact <> prevFact // and NOT ((fact)<-[:`__NEXT__`]-(prevFact))',
         'WITH DISTINCT fact, prevFact',
         'MERGE (fact)<-[:`__NEXT__`]-(prevFact)'
     ]
@@ -322,7 +322,7 @@ def create_fact_next_relation(graph_store, facts):
         '// insert connection to next facts',
         'UNWIND $params AS params',
         f'MATCH (fact:`__Fact__`{{{graph_store.node_id("factId")}: params.fact_id}})<-[:`__OBJECT__`]-(:`__Entity__`)-[:`__SUBJECT__`]->(nextFact:`__Fact__`)',
-        'WHERE fact <> nextFact and NOT ((fact)-[:`__NEXT__`]->(nextFact))',
+        'WHERE fact <> nextFact // and NOT ((fact)-[:`__NEXT__`]->(nextFact))',
         'WITH DISTINCT fact, nextFact',
         'MERGE (fact)-[:`__NEXT__`]->(nextFact)'
     ]
@@ -438,7 +438,7 @@ def iter_batch(iterable, batch_size):
             break
         yield b
 
-def repair(graph_store_info, batch_size, skip_invalid_relationships, tenant_id=None):
+def repair(graph_store_info, batch_size, skip_invalid_relationships, skip_entity_fact_relationships, tenant_id=None):
 
     graph_store = GraphStoreFactory.for_graph_store(
         graph_store_info,
@@ -467,13 +467,15 @@ def repair(graph_store_info, batch_size, skip_invalid_relationships, tenant_id=N
         
     if not skip_invalid_relationships:
         delete_invalid_relationships(graph_store, fact_ids, batch_size=batch_size)
+
+    if not skip_entity_fact_relationships:
     
-    progress_bar_1 = tqdm(total=len(fact_ids_to_process), desc='Creating SUBJECT|OBJECT entity-fact relationships')
-    for fact_id_batch in iter_batch(fact_ids_to_process, batch_size=batch_size):
-        facts = get_facts(graph_store, fact_id_batch)
-        create_entity_fact_relation(graph_store, facts, 'subject')
-        create_entity_fact_relation(graph_store, facts, 'object')
-        progress_bar_1.update(len(fact_id_batch))
+        progress_bar_1 = tqdm(total=len(fact_ids_to_process), desc='Creating SUBJECT|OBJECT entity-fact relationships')
+        for fact_id_batch in iter_batch(fact_ids_to_process, batch_size=batch_size):
+            facts = get_facts(graph_store, fact_id_batch)
+            create_entity_fact_relation(graph_store, facts, 'subject')
+            create_entity_fact_relation(graph_store, facts, 'object')
+            progress_bar_1.update(len(fact_id_batch))
 
     #print()
     #print('Creating RELATION entity-entity relationships...')
@@ -504,6 +506,7 @@ def do_repair():
     parser.add_argument('--tenant-id', nargs='*', help = 'Space-separated list of tenant ids (optional)')
     parser.add_argument('--batch-size', nargs='?', help = 'Batch size (optional, default 100)')
     parser.add_argument('--skip-invalid-relationships', action='store_true', help = 'Skip deleting invalid relationships (optional)')
+    parser.add_argument('--skip-entity-fact-relationships', action='store_true', help = 'Skip creating entity-fact relationships (optional)')
     
     args, _ = parser.parse_known_args()
     args_dict = { k:v for k,v in vars(args).items() if v}
@@ -512,20 +515,22 @@ def do_repair():
     tenant_ids = args_dict.get('tenant_id', [])
     batch_size = int(args_dict.get('batch_size', 100))
     skip_invalid_relationships = bool(args_dict.get('skip_invalid_relationships', False))
+    skip_entity_fact_relationships = bool(args_dict.get('skip_entity_fact_relationships', False))
 
-    print(f'graph_store_info           : {graph_store_info}')
-    print(f'tenant_ids                 : {tenant_ids}')
-    print(f'batch_size                 : {batch_size}')
-    print(f'skip_invalid_relationships : {skip_invalid_relationships}')
+    print(f'graph_store_info               : {graph_store_info}')
+    print(f'tenant_ids                     : {tenant_ids}')
+    print(f'batch_size                     : {batch_size}')
+    print(f'skip_invalid_relationships     : {skip_invalid_relationships}')
+    print(f'skip_entity_fact_relationships : {skip_entity_fact_relationships}')
     print()
 
     results = []
     
     if not tenant_ids:
-            results.append(repair(graph_store_info, batch_size, skip_invalid_relationships))
+            results.append(repair(graph_store_info, batch_size, skip_invalid_relationships, skip_entity_fact_relationships))
     else:
         for tenant_id in tenant_ids:
-            results.append(repair(graph_store_info, batch_size, skip_invalid_relationships, tenant_id))
+            results.append(repair(graph_store_info, batch_size, skip_invalid_relationships, skip_entity_fact_relationships, tenant_id))
                 
     print()
     print(json.dumps(results, indent=2))
