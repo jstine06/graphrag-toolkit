@@ -180,13 +180,14 @@ class StatementNodeBuilder(NodeBuilder):
                             else:
                                 #fact.subject.entityId = self.id_generator.create_node_id('entity', fact.subject.value, fact.subject.classification)
                                 fact.subject.entityId = self.id_generator.create_node_id('entity', fact.subject.value)
-                            
+                                
                             if fact.object:
                                 #fact.object.entityId = self.id_generator.create_node_id('entity', fact.object.value, fact.object.classification)
                                 fact.object.entityId = self.id_generator.create_node_id('entity', fact.object.value)
                             
                             if fact.complement:
                                 fact.complement.entityId = self.id_generator.create_node_id('local-entity', fact.complement.value, source_id)
+                                fact.complement.altEntityId = self.id_generator.create_node_id('entity', fact.complement.value)
                             
                             fact_metadata = {
                                 'fact': fact.model_dump(),

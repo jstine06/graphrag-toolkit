@@ -509,7 +509,8 @@ class OpenSearchIndex(VectorIndex):
         """
         if self._client:
             if self._client._index != self.underlying_index_name():
-                self._client._os_client.close()
+                if self._client._os_client:
+                    self._client._os_client.close()
                 self._client = None
 
         if not self._client:

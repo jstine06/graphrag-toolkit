@@ -122,6 +122,7 @@ class Entity(BaseModel):
     model_config = ConfigDict(strict=True)
     
     entityId: Optional[str]=None
+    altEntityId: Optional[str]=None
 
     value: str
     classification: Optional[str]=None

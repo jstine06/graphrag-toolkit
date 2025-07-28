@@ -153,8 +153,9 @@ class EntityRelationGraphBuilder(GraphBuilder):
                     r_comment = f'// awsqid:{s_id}-{r_name}-{c_id}'
 
                     statements_r = [
-                        f"MERGE ({s_var}:`__Entity__`{{{graph_client.node_id('entityId')}: '{s_id}'}})",
-                        f"MERGE ({c_var}:`__Entity__`{{{graph_client.node_id('entityId')}: '{c_id}'}})",
+                        f"MATCH ({s_var}:`__Entity__`{{{graph_client.node_id('entityId')}: '{s_id}'}})",
+                        f"({c_var}:`__Entity__`{{{graph_client.node_id('entityId')}: '{c_id}'}})",
+                        "WITH s_var, c_var",
                         f"MERGE ({s_var})-[{r_var}:`{r_name}`]->({c_var})",
                         f"ON CREATE SET {r_var}.count = 1 ON MATCH SET {r_var}.count = {r_var}.count + 1",
                         r_comment
