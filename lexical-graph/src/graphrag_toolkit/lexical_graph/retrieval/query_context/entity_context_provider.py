@@ -45,7 +45,7 @@ class EntityContextProvider():
                       -[r:`__SUBJECT__`|`__OBJECT__`]->()
                 WHERE  {self.graph_store.node_id('entity.entityId')} IN $entityIds
                 AND NOT {self.graph_store.node_id('other.entityId')} IN $excludeEntityIds
-                WITH entity, other, count(DISTINCT r) AS score ORDER BY score DESC
+                WITH entity, other, count(r) AS score ORDER BY score DESC
                 RETURN {{
                     {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
                     others: collect({self.graph_store.node_id('other.entityId')})[0..$numNeighbours]
@@ -111,7 +111,7 @@ class EntityContextProvider():
         // expand entities: score entities by number of relations
         MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`|`__OBJECT__`]->()
         WHERE {self.graph_store.node_id('entity.entityId')} IN $entityIds
-        WITH entity, count(DISTINCT r) AS score
+        WITH entity, count(r) AS score
         RETURN {{
             {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
             score: score

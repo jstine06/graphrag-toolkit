@@ -94,7 +94,7 @@ class KeywordVSSProvider(KeywordProviderBase):
         <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity)
         -[r:`__RELATION`]-()
         WHERE {self.graph_store.node_id("c.chunkId")} in $chunkIds
-        WITH DISTINCT entity, count(DISTINCT r) AS score ORDER BY score DESC LIMIT $limit
+        WITH DISTINCT entity, count(r) AS score ORDER BY score DESC LIMIT $limit
         RETURN {{
             {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
             score: score

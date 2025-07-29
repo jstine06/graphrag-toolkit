@@ -47,7 +47,7 @@ class EntityVSSProvider(EntityProviderBase):
         WHERE {self.graph_store.node_id("c.chunkId")} in $chunkIds
         WITH DISTINCT entity
         MATCH (entity)-[r:`__SUBJECT__`|`__OBJECT__`]->()
-        WITH entity, count(DISTINCT r) AS score ORDER BY score DESC LIMIT $limit
+        WITH entity, count(r) AS score ORDER BY score DESC LIMIT $limit
         RETURN {{
             {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
             score: score

@@ -30,7 +30,7 @@ class EntityProvider(EntityProviderBase):
             // get entities for keywords
             MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`|`__OBJECT__`]->()
             WHERE entity.search_str = $keyword and entity.class STARTS WITH $classification
-            WITH entity, count(DISTINCT r) AS score ORDER BY score DESC
+            WITH entity, count(r) AS score ORDER BY score DESC
             RETURN {{
                 {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
                 score: score
@@ -45,7 +45,7 @@ class EntityProvider(EntityProviderBase):
             // get entities for keywords
             MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`|`__OBJECT__`]->()
             WHERE entity.search_str = $keyword
-            WITH entity, count(DISTINCT r) AS score ORDER BY score DESC
+            WITH entity, count(r) AS score ORDER BY score DESC
             RETURN {{
                 {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
                 score: score
@@ -65,7 +65,7 @@ class EntityProvider(EntityProviderBase):
                         
     def _get_entities(self, keywords:List[str])  -> List[ScoredEntity]:
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(keywords)) as p:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.num_workers) as p:
             scored_entity_batches:Iterator[List[ScoredEntity]] = p.map(self._get_entities_for_keyword, keywords)
             scored_entities = sum(scored_entity_batches, start=cast(List[ScoredEntity], []))
 
