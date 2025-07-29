@@ -45,7 +45,7 @@ class LocalEntityRewritesGraphBuilder(GraphBuilder):
                     '// copy complement relationships to subject entity',
                     'UNWIND $params AS params',
                     f"MATCH (n:`__Entity__`{{{graph_client.node_id('entityId')}: params.nId}}),",   
-                    "(s)-[r:`__RELATION__`]->(c:`__Entity__`{search_str: n.search_str, class: params.class})-[:`__OBJECT__`]->(f)",
+                    f"(s)-[r:`__RELATION__`]->(c:`__Entity__`{{search_str: n.search_str, class: '{LOCAL_ENTITY_CLASSIFICATION}'}})-[:`__OBJECT__`]->(f)",
                     "WHERE c <> n",
                     "WITH n, s, r, f",
                     "MERGE (s)-[:`__RELATION__`{value:r.value}]->(n)",
@@ -53,8 +53,7 @@ class LocalEntityRewritesGraphBuilder(GraphBuilder):
                 ]
 
                 copy_complement_rels_params = {
-                    'nId': fact.subject.entityId,
-                    'class': LOCAL_ENTITY_CLASSIFICATION
+                    'nId': fact.subject.entityId
                 }
 
                 copy_complement_rels_query = '\n'.join(copy_complement_rels_statements)
@@ -66,7 +65,7 @@ class LocalEntityRewritesGraphBuilder(GraphBuilder):
                     '// delete complement and rels if real subject entity',
                     'UNWIND $params AS params',
                     f"MATCH (n:`__Entity__`{{{graph_client.node_id('entityId')}: params.nId}}),",   
-                    "()-[r1:`__RELATION__`]->(c:`__Entity__`{search_str: n.search_str, class: params.class})-[r2:`__OBJECT__`]->()",
+                    f"()-[r1:`__RELATION__`]->(c:`__Entity__`{{search_str: n.search_str, '{LOCAL_ENTITY_CLASSIFICATION}'}})-[r2:`__OBJECT__`]->()",
                     "WHERE c <> n",
                     "WITH n, r1, r2, c",
                     "DELETE r1",
@@ -75,8 +74,7 @@ class LocalEntityRewritesGraphBuilder(GraphBuilder):
                 ]
 
                 delete_complement_params = {
-                    'nId': fact.subject.entityId,
-                    'class': LOCAL_ENTITY_CLASSIFICATION
+                    'nId': fact.subject.entityId
                 }
 
                 delete_complement_query = '\n'.join(delete_complement_statements)
