@@ -56,10 +56,17 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
     def _chunk_based_graph_search(self, chunk_id):
 
-        cypher = f'''// chunk-based entity network graph search
-        MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-(`__Statement__`)<-[:`__SUPPORTS__`]-()
-              -[:`__NEXT__`*0..1]-()-[:`__SUPPORTS__`]->()
-              -[:`__PREVIOUS__`*0..1]-(l:`__Statement__`)                                 
+        # cypher = f'''// chunk-based entity network graph search
+        # MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-()
+        #       <-[:`__BELONGS_TO__`]-()<-[:`__SUPPORTS__`]-()
+        #       -[:`__NEXT__`*0..1]-()-[:`__SUPPORTS__`]->()
+        #       -[:`__PREVIOUS__`*0..1]-(l)                                 
+        # WHERE {self.graph_store.node_id("c.chunkId")} = $chunkId
+        # RETURN DISTINCT id(l) AS l LIMIT $statementLimit
+        # '''
+
+        cypher = f'''// chunk-based graph search                                  
+        MATCH (l)-[:`__BELONGS_TO__`]->()-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
         WHERE {self.graph_store.node_id("c.chunkId")} = $chunkId
         RETURN DISTINCT id(l) AS l LIMIT $statementLimit
         '''
@@ -73,27 +80,6 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
         statement_ids = [r['l'] for r in results]
 
         return self.get_statements_by_topic_and_source(statement_ids)
-    
-
-
-
-        
-        # cypher = self.create_cypher_query(f'''
-        # // chunk-based entity network graph search
-        # MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-(`__Statement__`)<-[:`__SUPPORTS__`]-()
-        #       -[:`__NEXT__`*0..1]-()-[:`__SUPPORTS__`]->()
-        #       -[:`__PREVIOUS__`*0..1]-(l:`__Statement__`)
-        #       -[:`__BELONGS_TO__`]->(t:`__Topic__`)                                                                        
-        # WHERE {self.graph_store.node_id("c.chunkId")} = $chunkId
-        # ''')
-                                          
-        # properties = {
-        #     'chunkId': chunk_id,
-        #     'limit': self.args.query_limit,
-        #     'statementLimit': self.args.intermediate_limit
-        # }
-                                          
-        # return self.graph_store.execute_query(cypher, properties)
 
     def _get_entity_context_strings(self) -> List[str]:
 

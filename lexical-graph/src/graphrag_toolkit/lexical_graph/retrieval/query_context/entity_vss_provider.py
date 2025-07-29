@@ -43,7 +43,7 @@ class EntityVSSProvider(EntityProviderBase):
         cypher = f"""
         // get entities for chunk ids
         MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-(:`__Statement__`)
-        <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity:`__Entity__`)
+        <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity)
         WHERE {self.graph_store.node_id("c.chunkId")} in $chunkIds
         WITH DISTINCT entity
         MATCH (entity)-[r:`__SUBJECT__`|`__OBJECT__`]->()

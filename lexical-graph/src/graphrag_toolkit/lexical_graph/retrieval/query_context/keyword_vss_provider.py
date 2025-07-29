@@ -91,7 +91,7 @@ class KeywordVSSProvider(KeywordProviderBase):
         cypher = f"""
         // get entities for chunk ids
         MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-(:`__Statement__`)
-        <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity:`__Entity__`)
+        <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity)
         -[r:`__RELATION`]-()
         WHERE {self.graph_store.node_id("c.chunkId")} in $chunkIds
         WITH DISTINCT entity, count(DISTINCT r) AS score ORDER BY score DESC LIMIT $limit
