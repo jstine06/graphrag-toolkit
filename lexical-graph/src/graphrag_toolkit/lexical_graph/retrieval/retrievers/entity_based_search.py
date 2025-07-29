@@ -146,9 +146,8 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
         WHERE {self.graph_store.node_id("e2.entityId")} in $endIds
         UNWIND nodes(p) AS n
         WITH DISTINCT COLLECT(n) AS entities
-        MATCH (s:`__Entity__`)-[:`__SUBJECT__`]->(f:`__Fact__`)<-[:`__OBJECT__`]-(o:`__Entity__`),
-            (f)-[:`__SUPPORTS__`]->(:`__Statement__`)
-            -[:`__PREVIOUS__`*0..1]-(l:`__Statement__`)
+        MATCH (s)-[:`__SUBJECT__`]->(f)<-[:`__OBJECT__`]-(o),
+              (f)-[:`__SUPPORTS__`]->()-[:`__PREVIOUS__`*0..1]-(l)
         WHERE s in entities and o in entities
         RETURN DISTINCT id(l) AS l LIMIT $statementLimit
         '''
@@ -185,9 +184,9 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
             
         cypher = f'''// single entity-based graph search                            
         MATCH (:`__Entity__`{{{self.graph_store.node_id("entityId")}:$startId}})
-            -[:`__SUBJECT__`]->(f:`__Fact__`)
-            -[:`__SUPPORTS__`]->(:`__Statement__`)
-            -[:`__PREVIOUS__`*0..1]-(l:`__Statement__`)
+            -[:`__SUBJECT__`]->()
+            -[:`__SUPPORTS__`]->()
+            -[:`__PREVIOUS__`*0..1]-(l)
         RETURN DISTINCT id(l) AS l LIMIT $statementLimit'''
             
         properties = {

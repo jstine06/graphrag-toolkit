@@ -131,9 +131,9 @@ class TraversalBasedBaseRetriever(BaseRetriever):
 
         statements_cypher = f'''
         // get statements grouped by topic and source
-        MATCH (t:`__Topic__`)<-[:`__BELONGS_TO__`]-(l:`__Statement__`)   
-              -[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
-              -[:`__EXTRACTED_FROM__`]->(s:`__Source__`)
+        MATCH (t)<-[:`__BELONGS_TO__`]-(l:`__Statement__`)   
+              -[:`__MENTIONED_IN__`]->(c)
+              -[:`__EXTRACTED_FROM__`]->(s)
         WHERE {self.graph_store.node_id("l.statementId")} in $statementIds
         WITH {{ sourceId: {self.graph_store.node_id("s.sourceId")}, metadata: s{{.*}}}} AS source,
             t, l, c,
@@ -157,7 +157,8 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         
         statements_results =  self.graph_store.execute_query(statements_cypher, statements_params)
     
-        statement_facts_cypher = f'''MATCH (f:`__Fact__`)-[:`__SUPPORTS__`]->(l:`__Statement__`)
+        statement_facts_cypher = f'''// get facts for statements
+        MATCH (f)-[:`__SUPPORTS__`]->(l:`__Statement__`)
         WHERE {self.graph_store.node_id("l.statementId")} in $statementIds
         RETURN id(l) AS statementId, collect(distinct f.value) AS facts'''
 

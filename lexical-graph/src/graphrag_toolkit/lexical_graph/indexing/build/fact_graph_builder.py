@@ -135,7 +135,7 @@ class FactGraphBuilder(GraphBuilder):
                 '// insert connection to prev facts',
                 'UNWIND $params AS params',
                 f'MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__SUBJECT__`]-(:`__Entity__`)-[:`__OBJECT__`]->(prevFact:`__Fact__`)',
-                'WHERE fact <> prevFact and NOT ((fact)<-[:`__NEXT__`]-(prevFact))',
+                'WHERE fact <> prevFact // and NOT ((fact)<-[:`__NEXT__`]-(prevFact))', # NOT may be expensive - perhaps better to omit?
                 'WITH DISTINCT fact, prevFact',
                 'MERGE (fact)<-[:`__NEXT__`]-(prevFact)'
             ]
@@ -154,7 +154,7 @@ class FactGraphBuilder(GraphBuilder):
                     '// insert connection to next facts',
                     'UNWIND $params AS params',
                     f'MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__OBJECT__`]-(:`__Entity__`)-[:`__SUBJECT__`]->(nextFact:`__Fact__`)',
-                    'WHERE fact <> nextFact and NOT ((fact)-[:`__NEXT__`]->(nextFact))',
+                    'WHERE fact <> nextFact // and NOT ((fact)-[:`__NEXT__`]->(nextFact))', # NOT may be expensive - perhaps better to omit?
                     'WITH DISTINCT fact, nextFact',
                     'MERGE (fact)-[:`__NEXT__`]->(nextFact)'
                 ]

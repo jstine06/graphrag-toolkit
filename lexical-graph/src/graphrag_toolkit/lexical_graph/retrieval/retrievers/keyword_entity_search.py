@@ -129,7 +129,7 @@ class KeywordEntitySearch(BaseRetriever):
             cypher = f"""
             // expand entities
             MATCH (entity:`__Entity__`)
-            -[:`__SUBJECT__`|`__OBJECT__`]->(:`__Fact__`)<-[:`__SUBJECT__`|`__OBJECT__`]-
+            -[:`__SUBJECT__`|`__OBJECT__`]->()<-[:`__SUBJECT__`|`__OBJECT__`]-
             (other:`__Entity__`)
             WHERE  {self.graph_store.node_id('entity.entityId')} IN $entityIds
             AND NOT {self.graph_store.node_id('other.entityId')} IN $excludeEntityIds
@@ -164,7 +164,7 @@ class KeywordEntitySearch(BaseRetriever):
       
         cypher = f"""
         // expand entities: score entities by number of facts
-        MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`]->(f:`__Fact__`)
+        MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`]->()
         WHERE {self.graph_store.node_id('entity.entityId')} IN $entityIds
         WITH entity, count(r) AS score
         RETURN {{
@@ -220,7 +220,7 @@ class KeywordEntitySearch(BaseRetriever):
 
             cypher = f"""
             // get entities for keywords
-            MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`|`__OBJECT__`]->(:`__Fact__`)
+            MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`|`__OBJECT__`]->()
             WHERE entity.search_str = $keyword and entity.class STARTS WITH $classification
             WITH entity, count(r) AS score ORDER BY score DESC
             RETURN {{
@@ -235,7 +235,7 @@ class KeywordEntitySearch(BaseRetriever):
         else:
             cypher = f"""
             // get entities for keywords
-            MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`|`__OBJECT__`]->(:`__Fact__`)
+            MATCH (entity:`__Entity__`)-[r:`__SUBJECT__`|`__OBJECT__`]->()
             WHERE entity.search_str = $keyword
             WITH entity, count(r) AS score ORDER BY score DESC
             RETURN {{
