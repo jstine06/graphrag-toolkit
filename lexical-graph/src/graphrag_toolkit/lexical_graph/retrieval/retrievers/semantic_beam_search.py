@@ -87,7 +87,8 @@ class SemanticBeamGraphSearch(SemanticGuidedBaseRetriever):
             List[str]: A list of statement IDs that are neighbors to the given statement ID.
         """
         cypher = f"""
-        MATCH (e:`__Entity__`)-[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->(s)
+        // get statement neighbours (semantic beam search)
+        MATCH (e)-[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->(s:`__Statement__`)
         WHERE {self.graph_store.node_id('s.statementId')} = $statementId
         WITH s, COLLECT(DISTINCT e) AS entities
         UNWIND entities AS entity

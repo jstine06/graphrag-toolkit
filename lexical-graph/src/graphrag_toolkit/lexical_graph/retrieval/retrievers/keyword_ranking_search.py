@@ -163,6 +163,7 @@ class KeywordRankingSearch(SemanticGuidedBaseRetriever):
 
         # 2. Find statements matching any keyword
         cypher = f"""
+        // find statements by keywords
         UNWIND $keywords AS keyword
         MATCH (e:`__Entity__`)
         WHERE e.search_str = keyword

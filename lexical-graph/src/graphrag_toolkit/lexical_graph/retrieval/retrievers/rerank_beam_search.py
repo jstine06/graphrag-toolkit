@@ -145,7 +145,8 @@ class RerankingBeamGraphSearch(SemanticGuidedBaseRetriever):
 
         """
         cypher = f"""
-        MATCH (e:`__Entity__`)-[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->(s)
+        // get statement neighbours (rerank beam search)
+        MATCH (e)-[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->(s:`__Statement__`)
         WHERE {self.graph_store.node_id('s.statementId')} = $statementId
         WITH s, COLLECT(DISTINCT e) AS entities
         UNWIND entities AS entity
