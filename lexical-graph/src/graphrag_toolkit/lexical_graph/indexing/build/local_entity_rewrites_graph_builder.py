@@ -71,7 +71,7 @@ class LocalEntityRewritesGraphBuilder(GraphBuilder):
                     "WITH n, r1, r2, c",
                     "DELETE r1",
                     "DELETE r2",
-                    "DELETE c"
+                    "DETACH DELETE c"
                 ]
 
                 delete_complement_params = {
@@ -115,7 +115,7 @@ class LocalEntityRewritesGraphBuilder(GraphBuilder):
                     "WITH n, r1, r2, c",
                     "DELETE r1",
                     "DELETE r2",
-                    "DELETE c"
+                    "DETACH DELETE c"
                 ]
 
                 delete_complement_params = {
