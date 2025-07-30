@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Dict, Any, List, Callable
-from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
+from graphrag_toolkit.lexical_graph.storage.graph import GraphStore, Query, QueryTree
 
 class GraphBatchClient():
     """
@@ -39,9 +39,10 @@ class GraphBatchClient():
         self.graph_client = graph_client
         self.batch_writes_enabled = batch_writes_enabled
         self.batch_write_size = batch_write_size
-        self.batches = {}
+        self.batches:Dict[str, List] = {}
+        self.query_trees:Dict[str, QueryTree] = {}
         self.all_nodes = []
-        self.parameterless_queries = {}
+        self.parameterless_queries:Dict[str, str] = {}
 
     @property
     def tenant_id(self):
@@ -95,7 +96,7 @@ class GraphBatchClient():
             self.parameterless_queries[q_id] = query_str
 
     
-    def execute_query_with_retry(self, query:str, properties:Dict[str, Any], **kwargs):
+    def execute_query_with_retry(self, query:QueryTree, properties:Dict[str, Any], **kwargs):
         """
         Executes a query with retry logic. Supports batch processing of queries if
         batch writes are enabled. When batch writes are enabled, properties are grouped
@@ -111,12 +112,21 @@ class GraphBatchClient():
         if not self.batch_writes_enabled:
             self.graph_client.execute_query_with_retry(query, properties, **kwargs)
         else:
-            if properties:
-                if query not in self.batches:
-                    self.batches[query] = []
-                self.batches[query].extend(properties['params'])
+            if isinstance(query, str):
+                if properties:
+                    if query not in self.batches:
+                        self.batches[query] = []
+                    self.batches[query].extend(properties['params'])
+                else:
+                    self._add_parameterless_query(query)
+            elif isinstance(query, QueryTree):
+                properties = properties or {'params':[]}
+                if query.id not in self.batches:
+                    self.batches[query.id] = []
+                    self.query_trees[query.id] = query
+                self.batches[query.id].extend(properties['params'])
             else:
-                self._add_parameterless_query(query)
+                raise ValueError(f'Invalid query type. Expected string or Query Tree but received {type(query).__name__}.')
 
     def allow_yield(self, node):
         """
@@ -142,6 +152,62 @@ class GraphBatchClient():
         else:
             return True
         
+    def _apply_parameterless_queries(self):
+
+        parameterless_queries = list(self.parameterless_queries.values())
+        parameterless_batch_write_size = min(25, self.batch_write_size)
+
+        parameterless_query_batches = [
+            parameterless_queries[x:x+parameterless_batch_write_size] 
+            for x in range(0, len(parameterless_queries), parameterless_batch_write_size)
+        ]
+
+        for parameterless_query_batch in parameterless_query_batches:
+            parameterless_query_batch = ['// parameterless queries'] + parameterless_query_batch
+            query = '\n'.join(parameterless_query_batch)
+            self.graph_client.execute_query_with_retry(query, {}, max_attempts=5, max_wait=7)
+
+    def _apply_batch_query(self, query, parameters):
+
+        deduped_parameters = self._dedup(parameters)
+        parameter_chunks = [
+            deduped_parameters[x:x+self.batch_write_size] 
+            for x in range(0, len(deduped_parameters), self.batch_write_size)
+        ]
+
+        for p in parameter_chunks:
+            params = {
+                'params': p
+            }
+            self.graph_client.execute_query_with_retry(query, params, max_attempts=5, max_wait=7)
+
+    def _apply_batch_query_tree(self, query_tree_id, parameters):
+
+        query_tree = self.query_trees[query_tree_id]
+
+        def graph_store_op(q, p):
+
+            all_params = p['params']
+
+            parameter_chunks = [
+                all_params[x:x+self.batch_write_size] 
+                for x in range(0, len(all_params), self.batch_write_size)
+            ]
+
+            for chunk in parameter_chunks:
+                
+                params = {
+                    'params': chunk
+                }
+
+                results = self.graph_client.execute_query_with_retry(q, params, max_attempts=5, max_wait=7)
+
+                for r in results:
+                    yield r
+
+        for r in query_tree.run(parameters, graph_store_op):
+            continue
+        
     def apply_batch_operations(self):
         """
         Executes batch operations by processing stored queries and parameters, deduplicating
@@ -159,30 +225,12 @@ class GraphBatchClient():
         """
         for query, parameters in self.batches.items():
 
-            deduped_parameters = self._dedup(parameters)
-            parameter_chunks = [
-                deduped_parameters[x:x+self.batch_write_size] 
-                for x in range(0, len(deduped_parameters), self.batch_write_size)
-            ]
+            if query.startswith('query-tree-'):
+                self._apply_batch_query_tree(query, parameters)
+            else:
+                self._apply_batch_query(query, parameters)
 
-            for p in parameter_chunks:
-                params = {
-                    'params': p
-                }
-                self.graph_client.execute_query_with_retry(query, params, max_attempts=5, max_wait=7)
-
-        parameterless_queries = list(self.parameterless_queries.values())
-        parameterless_batch_write_size = min(25, self.batch_write_size)
-
-        parameterless_query_batches = [
-            parameterless_queries[x:x+parameterless_batch_write_size] 
-            for x in range(0, len(parameterless_queries), parameterless_batch_write_size)
-        ]
-
-        for parameterless_query_batch in parameterless_query_batches:
-            parameterless_query_batch = ['// parameterless queries'] + parameterless_query_batch
-            query = '\n'.join(parameterless_query_batch)
-            self.graph_client.execute_query_with_retry(query, {}, max_attempts=5, max_wait=7)
+        self._apply_parameterless_queries()
 
         return self.all_nodes
   

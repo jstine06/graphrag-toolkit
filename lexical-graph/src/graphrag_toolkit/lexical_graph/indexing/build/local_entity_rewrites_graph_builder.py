@@ -5,8 +5,7 @@ import logging
 from typing import Any
 
 from graphrag_toolkit.lexical_graph.indexing.model import Fact
-from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
-from graphrag_toolkit.lexical_graph.storage.graph.graph_utils import relationship_name_from, new_query_var
+from graphrag_toolkit.lexical_graph.storage.graph import GraphStore, Query, QueryTree
 from graphrag_toolkit.lexical_graph.indexing.build.graph_builder import GraphBuilder
 from graphrag_toolkit.lexical_graph.indexing.utils.fact_utils import string_complement_to_entity
 from graphrag_toolkit.lexical_graph.indexing.constants import LOCAL_ENTITY_CLASSIFICATION
@@ -24,7 +23,6 @@ class LocalEntityRewritesGraphBuilder(GraphBuilder):
     def build(self, node:BaseNode, graph_client: GraphStore, **kwargs:Any):
         
         fact_metadata = node.metadata.get('fact', {})
-        include_domain_labels = kwargs['include_domain_labels']
         include_local_entities = kwargs['include_local_entities']
 
         if fact_metadata:
@@ -37,93 +35,82 @@ class LocalEntityRewritesGraphBuilder(GraphBuilder):
                     logger.debug(f'Ignoring local entity rewrites for fact [fact_id: {fact.factId}]')
                     return
                 
+            copy_complement_relationships_to_subject = Query(
+                query=f"""// copy complement relationships to subject
+                UNWIND $params AS params
+                MATCH (n),
+                (s)-[r:`__RELATION__`]->(c)-[:`__OBJECT__`]->(f)
+                WHERE {graph_client.node_id('n.entityId')} = params.n_id AND {graph_client.node_id('c.entityId')} = params.c_id
+                MERGE (s)-[:`__RELATION__`{{value:r.value}}]->(n)
+                MERGE (n)-[:`__OBJECT__`]->(f)
+                """
+            )
+
+            delete_complement_relationships = Query(
+                query=f"""// delete complement relationships
+                UNWIND $params AS params
+                MATCH (s)-[r1:`__RELATION__`]->(c)-[r2:`__OBJECT__`]->(f)
+                WHERE {graph_client.node_id('c.entityId')} = params.c_id
+                DELETE r1
+                DELETE r2
+                DETACH DELETE c
+                """
+            )
+                
             if fact.subject:
 
-                # Subject may map to complememnts (e.g. it may be an email address value that elsewhere acts as a complement)
+                # Subject may map to a local entity (e.g. it may be an email address value that elsewhere acts as a comlement)
 
-                copy_complement_rels_statements = [
-                    '// copy complement relationships to subject entity',
-                    'UNWIND $params AS params',
-                    f"MATCH (n:`__Entity__`{{{graph_client.node_id('entityId')}: params.nId}}),",   
-                    f"(s)-[r:`__RELATION__`]->(c:`__Entity__`{{search_str: n.search_str, class: '{LOCAL_ENTITY_CLASSIFICATION}'}})-[:`__OBJECT__`]->(f)",
-                    "WHERE c <> n",
-                    "WITH n, s, r, f",
-                    "MERGE (s)-[:`__RELATION__`{value:r.value}]->(n)",
-                    "MERGE (n)-[:`__OBJECT__`]->(f)"
-                ]
+                get_subject_complement_ids = Query(
+                    query=f"""// get complements matching subject (fact.subject)
+                    UNWIND $params AS params
+                    MATCH (n),
+                    (c:`__Entity__multihop5__`{{search_str: n.search_str, class: '{LOCAL_ENTITY_CLASSIFICATION}'}})
+                    WHERE {graph_client.node_id('n.entityId')} = params.nId AND n.class <> '{LOCAL_ENTITY_CLASSIFICATION}'
+                    RETURN {graph_client.node_id('n.entityId')} AS n_id, {graph_client.node_id('c.entityId')} AS c_id
+                    """,
+                    child_queries=[
+                        copy_complement_relationships_to_subject, 
+                        delete_complement_relationships
+                    ]
+                )
 
-                copy_complement_rels_params = {
+                params = {
                     'nId': fact.subject.entityId
                 }
 
-                copy_complement_rels_query = '\n'.join(copy_complement_rels_statements)
+                query_tree = QueryTree('get-complements-for-subject', get_subject_complement_ids)
 
-                graph_client.execute_query_with_retry(copy_complement_rels_query, self._to_params(copy_complement_rels_params), max_attempts=5, max_wait=7)
-
-
-                delete_complement_statements = [
-                    '// delete complement and rels if real subject entity',
-                    'UNWIND $params AS params',
-                    f"MATCH (n:`__Entity__`{{{graph_client.node_id('entityId')}: params.nId}}),",   
-                    f"()-[r1:`__RELATION__`]->(c:`__Entity__`{{search_str: n.search_str, '{LOCAL_ENTITY_CLASSIFICATION}'}})-[r2:`__OBJECT__`]->()",
-                    "WHERE c <> n",
-                    "WITH n, r1, r2, c",
-                    "DELETE r1",
-                    "DELETE r2",
-                    "DETACH DELETE c"
-                ]
-
-                delete_complement_params = {
-                    'nId': fact.subject.entityId
-                }
-
-                delete_complement_query = '\n'.join(delete_complement_statements)
-
-                graph_client.execute_query_with_retry(delete_complement_query, self._to_params(delete_complement_params), max_attempts=5, max_wait=7)
+                graph_client.execute_query_with_retry(query_tree, self._to_params(params), max_attempts=5, max_wait=7)
 
 
             if fact.subject and fact.complement:
 
                 # Complement may map to a real entity (e.g. it may be an email address value that elsewhere acts as a subject entity)
 
-                copy_complement_rels_statements = [
-                    '// copy complement relationships to real entity',
-                    'UNWIND $params AS params',
-                    f"MATCH (n:`__Entity__`{{{graph_client.node_id('entityId')}: params.nId}}),",   
-                    f"(s)-[r:`__RELATION__`]->(c:`__Entity__`{{{graph_client.node_id('entityId')}: params.cId}})-[:`__OBJECT__`]->(f)",
-                    "WITH n, s, r, f",
-                    "MERGE (s)-[:`__RELATION__`{value:r.value}]->(n)",
-                    "MERGE (n)-[:`__OBJECT__`]->(f)"
-                ]
+                get_complement_subject_ids = Query(
+                    query=f"""// get subjects matching complement (fact.complement)
+                    UNWIND $params AS params
+                    MATCH (n), (c)
+                    WHERE {graph_client.node_id('n.entityId')} = params.nId AND {graph_client.node_id('c.entityId')} = params.cId
+                    RETURN {graph_client.node_id('n.entityId')} AS n_id, {graph_client.node_id('c.entityId')} AS c_id
+                    """,
+                    child_queries=[
+                        copy_complement_relationships_to_subject, 
+                        delete_complement_relationships
+                    ]
+                )
 
-                copy_complement_rels_params = {
+                params = {
                     'nId': fact.complement.altEntityId,
                     'cId': fact.complement.entityId
                 }
 
-                copy_complement_rels_query = '\n'.join(copy_complement_rels_statements)
+                query_tree = QueryTree('get-real-subjects-for-complement', get_complement_subject_ids)
 
-                graph_client.execute_query_with_retry(copy_complement_rels_query, self._to_params(copy_complement_rels_params), max_attempts=5, max_wait=7)
+                graph_client.execute_query_with_retry(query_tree, self._to_params(params), max_attempts=5, max_wait=7)
 
-                delete_complement_statements = [
-                    '// delete complement and rels if real entity',
-                    'UNWIND $params AS params',
-                    f"MATCH (n:`__Entity__`{{{graph_client.node_id('entityId')}: params.nId}}),",   
-                    f"()-[r1:`__RELATION__`]->(c:`__Entity__`{{{graph_client.node_id('entityId')}: params.cId}})-[r2:`__OBJECT__`]->()",
-                    "WITH n, r1, r2, c",
-                    "DELETE r1",
-                    "DELETE r2",
-                    "DETACH DELETE c"
-                ]
 
-                delete_complement_params = {
-                    'nId': fact.complement.altEntityId,
-                    'cId': fact.complement.entityId
-                }
-
-                delete_complement_query = '\n'.join(delete_complement_statements)
-
-                graph_client.execute_query_with_retry(delete_complement_query, self._to_params(delete_complement_params), max_attempts=5, max_wait=7)
 
         else:
             logger.warning(f'fact_id missing from fact node [node_id: {node.node_id}]')
