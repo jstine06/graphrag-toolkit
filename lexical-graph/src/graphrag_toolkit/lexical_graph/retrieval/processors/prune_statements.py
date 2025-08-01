@@ -18,6 +18,9 @@ class PruneStatements(ProcessorBase):
         if not self.args.statement_pruning_factor:
             return search_results
         
+        if not search_results.results:
+            return search_results
+        
         max_statement_score = max([
                 statement.score
                 for search_result in search_results.results

@@ -43,19 +43,21 @@ def batch_extract_and_load():
 
     indexing_config = IndexingConfig(batch_config=batch_config)
 
-    graph_store = GraphStoreFactory.for_graph_store(os.environ['GRAPH_STORE'])
-    vector_store = VectorStoreFactory.for_vector_store(os.environ['VECTOR_STORE'])
+    with (
+        GraphStoreFactory.for_graph_store(os.environ['GRAPH_STORE']) as graph_store,
+        VectorStoreFactory.for_vector_store(os.environ['VECTOR_STORE']) as vector_store
+    ):
 
-    graph_index = LexicalGraphIndex(
-        graph_store, 
-        vector_store,
-        indexing_config=indexing_config
-    )
+        graph_index = LexicalGraphIndex(
+            graph_store, 
+            vector_store,
+            indexing_config=indexing_config
+        )
 
-    reader = SimpleDirectoryReader(input_dir='path/to/directory')
-    docs = reader.load_data()
+        reader = SimpleDirectoryReader(input_dir='path/to/directory')
+        docs = reader.load_data()
 
-    graph_index.extract_and_build(docs, show_progress=True)
+        graph_index.extract_and_build(docs, show_progress=True)
     
 batch_extract_and_load()
 ```

@@ -56,19 +56,10 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
     def _chunk_based_graph_search(self, chunk_id):
 
-        # cypher = f'''// chunk-based entity network graph search
-        # MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-()
-        #       <-[:`__BELONGS_TO__`]-()<-[:`__SUPPORTS__`]-()
-        #       -[:`__NEXT__`*0..1]-()-[:`__SUPPORTS__`]->()
-        #       -[:`__PREVIOUS__`*0..1]-(l)                                 
-        # WHERE {self.graph_store.node_id("c.chunkId")} = $chunkId
-        # RETURN DISTINCT id(l) AS l LIMIT $statementLimit
-        # '''
-
         cypher = f'''// chunk-based graph search                                  
         MATCH (l)-[:`__BELONGS_TO__`]->()-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
         WHERE {self.graph_store.node_id("c.chunkId")} = $chunkId
-        RETURN DISTINCT id(l) AS l LIMIT $statementLimit
+        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
         '''
 
         properties = {

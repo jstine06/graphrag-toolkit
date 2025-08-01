@@ -17,11 +17,12 @@ Use the `GraphStoreFactory.for_graph_store()` static factory method to create an
 
 To create a Neptune Analytics graph store, supply a connection string that begins `neptune-graph://`, followed by the graph's identifier:
 
-```
+```python
 from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory
 
 neptune_connection_info = 'neptune-graph://g-jbzzaqb209'
 
-graph_store = GraphStoreFactory.for_graph_store(neptune_connection_info)
+with GraphStoreFactory.for_graph_store(neptune_connection_info) as graph_store:
+    ...
 ```
 

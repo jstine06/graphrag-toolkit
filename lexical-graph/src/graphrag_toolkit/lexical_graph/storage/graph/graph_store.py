@@ -379,7 +379,15 @@ class GraphStore(BaseModel):
     log_formatting:GraphQueryLogFormatting = Field(default_factory=lambda: RedactedGraphQueryLogFormatting())
     tenant_id:TenantId = Field(default_factory=lambda: TenantId())
 
-    def execute_query_with_retry(self, query:QUERY_TYPE, parameters:Dict[str, Any], max_attempts=3, max_wait=5, **kwargs) -> Dict[str, Any]:
+    def __enter__(self):
+        logger.debug(f'Entering {type(self).__name__}')
+        return self
+    
+    def __exit__(self, exception_type, exception_value, traceback):
+        logger.debug(f'Exiting {type(self).__name__}')
+        return False
+
+    def execute_query_with_retry(self, query:str, parameters:Dict[str, Any], max_attempts=3, max_wait=5, **kwargs) -> Dict[str, Any]:
         """
         Executes a database query with a retry mechanism, allowing multiple attempts with delays between them.
 

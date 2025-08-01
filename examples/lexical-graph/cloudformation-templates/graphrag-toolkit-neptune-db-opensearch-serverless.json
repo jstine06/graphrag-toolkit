@@ -571,6 +571,38 @@
 									]
 								},
 								{
+									"Fn::Sub": "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0"
+								},
+								{
+									"Fn::Sub": [
+										"arn:${partition}:bedrock:${region}:${accountId}:inference-profile/${regionPrefix}.anthropic.claude-sonnet-4-20250514-v1:0",
+										{
+											"partition": {
+												"Ref": "AWS::Partition"
+											},
+											"region": {
+												"Ref": "AWS::Region"
+											},
+											"accountId": {
+												"Ref": "AWS::AccountId"
+											},
+											"regionPrefix": {
+												"Fn::Select": [
+													0,
+													{
+														"Fn::Split": [
+															"-",
+															{
+																"Ref": "AWS::Region"
+															}
+														]
+													}
+												]
+											}
+										}
+									]
+								},
+								{
 									"Fn::Sub": "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/cohere.embed-english-v3"
 								}
 							]

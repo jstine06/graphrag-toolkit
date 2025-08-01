@@ -33,7 +33,8 @@ from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
 
 opensearch_connection_info = 'aoss://https://123456789012.us-east-1.aoss.amazonaws.com'
 
-vector_store = VectorStoreFactory.for_vector_store(opensearch_connection_info)
+with VectorStoreFactory.for_vector_store(opensearch_connection_info) as vector_store:
+    ...
 ```
 
 ### Amazon OpenSearch Serverless and custom document IDs

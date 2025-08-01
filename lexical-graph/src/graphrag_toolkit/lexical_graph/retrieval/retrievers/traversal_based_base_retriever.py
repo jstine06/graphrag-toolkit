@@ -149,10 +149,11 @@ class TraversalBasedBaseRetriever(BaseRetriever):
                 chunks: chunks,
                 statements: statements
             }} as topic
+        WITH sum(size(topic.statements)/size(topic.chunks)) AS score, source, collect(topic) AS topics
         RETURN {{
-            score: sum(size(topic.statements)/size(topic.chunks)), 
+            score: score, 
             source: source,
-            topics: collect(topic)
+            topics: topics
         }} as result ORDER BY result.score DESC LIMIT $limit'''
         
         statements_results =  self.graph_store.execute_query(statements_cypher, statements_params)
@@ -160,7 +161,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         statement_facts_cypher = f'''// get facts for statements
         MATCH (f)-[:`__SUPPORTS__`]->(l:`__Statement__`)
         WHERE {self.graph_store.node_id("l.statementId")} in $statementIds
-        RETURN id(l) AS statementId, collect(distinct f.value) AS facts'''
+        RETURN {self.graph_store.node_id("l.statementId")} AS statementId, collect(distinct f.value) AS facts'''
 
         statement_facts_params = {
             'statementIds': statement_ids

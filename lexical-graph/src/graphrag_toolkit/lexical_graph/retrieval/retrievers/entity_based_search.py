@@ -149,7 +149,7 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
         MATCH (s)-[:`__SUBJECT__`]->(f)<-[:`__OBJECT__`]-(o),
               (f)-[:`__SUPPORTS__`]->()-[:`__PREVIOUS__`*0..1]-(l)
         WHERE s in entities and o in entities
-        RETURN DISTINCT id(l) AS l LIMIT $statementLimit
+        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
         '''
 
         properties = {
@@ -187,7 +187,7 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
             -[:`__SUBJECT__`]->()
             -[:`__SUPPORTS__`]->()
             -[:`__PREVIOUS__`*0..1]-(l)
-        RETURN DISTINCT id(l) AS l LIMIT $statementLimit'''
+        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit'''
             
         properties = {
             'startId': entity_id,

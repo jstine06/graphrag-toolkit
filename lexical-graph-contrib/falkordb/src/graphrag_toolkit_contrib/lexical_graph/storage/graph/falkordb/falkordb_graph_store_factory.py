@@ -5,6 +5,7 @@ from falkordb.edge import Edge
 from falkordb.path import Path
 
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStoreFactoryMethod, GraphStore, get_log_formatting
+from graphrag_toolkit_contrib.lexical_graph.storage.graph.falkordb.falkordb_graph_store import FalkorDBDatabaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +23,11 @@ class FalkorDBGraphStoreFactory(GraphStoreFactoryMethod):
         elif graph_info.endswith(FALKORDB_DNS):
             endpoint_url = graph_info
         if endpoint_url:
-            try:
-                from graphrag_toolkit.lexical_graph.storage.graph.falkordb import FalkorDBDatabaseClient
-                logger.debug(f'Opening FalkorDB database [endpoint: {endpoint_url}]')
-                return FalkorDBDatabaseClient(
-                    endpoint_url=endpoint_url,
-                    log_formatting=get_log_formatting(kwargs), 
-                    **kwargs
-                )
-            except ImportError as e:
-                raise e
-            
+            logger.debug(f'Opening FalkorDB database [endpoint: {endpoint_url}]')
+            return FalkorDBDatabaseClient(
+                endpoint_url=endpoint_url,
+                log_formatting=get_log_formatting(kwargs), 
+                **kwargs
+            )
         else:
             return None

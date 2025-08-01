@@ -29,6 +29,14 @@ class VectorStore(BaseModel):
     """
     indexes:Optional[Dict[str, VectorIndex]] = Field(description='Vector indexes', default_factory=dict)
 
+    def __enter__(self):
+        logger.debug(f'Entering {type(self).__name__}')
+        return self
+    
+    def __exit__(self, exception_type, exception_value, traceback):
+        logger.debug(f'Exiting {type(self).__name__}')
+        return False
+
     def get_index(self, index_name):
         """
         Retrieves the vector index associated with the given index name. If the specified index

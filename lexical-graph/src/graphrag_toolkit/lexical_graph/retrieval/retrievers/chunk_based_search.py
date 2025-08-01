@@ -88,7 +88,7 @@ class ChunkBasedSearch(TraversalBasedBaseRetriever):
         cypher = f'''// chunk-based graph search                                  
         MATCH (l)-[:`__BELONGS_TO__`]->()-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
         WHERE {self.graph_store.node_id("c.chunkId")} = $chunkId
-        RETURN DISTINCT id(l) AS l LIMIT $statementLimit
+        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
         '''
 
         properties = {

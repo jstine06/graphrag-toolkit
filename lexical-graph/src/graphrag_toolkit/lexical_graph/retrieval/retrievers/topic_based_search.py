@@ -100,7 +100,7 @@ class TopicBasedSearch(TraversalBasedBaseRetriever):
         WHERE {self.graph_store.node_id("tt.topicId")} = $topicId
         WITH f LIMIT $statementLimit
         MATCH (f)-[:`__SUPPORTS__`]->()-[:`__PREVIOUS__`*0..2]-(l)
-        RETURN DISTINCT id(l) AS l LIMIT $statementLimit
+        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
         '''
                                   
         properties = {

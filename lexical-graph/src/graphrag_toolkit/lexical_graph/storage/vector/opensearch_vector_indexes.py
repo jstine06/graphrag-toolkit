@@ -488,6 +488,8 @@ class OpenSearchIndex(VectorIndex):
         Returns:
             dict: The serialized state of the object.
         """
+        if self._client and self._client._os_client:
+            self._client._os_client.close()
         self._client = None
         return super().__getstate__()
         

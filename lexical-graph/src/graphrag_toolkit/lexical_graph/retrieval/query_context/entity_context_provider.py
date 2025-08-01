@@ -45,10 +45,10 @@ class EntityContextProvider():
                       -[r:`__SUBJECT__`|`__OBJECT__`]->()
                 WHERE  {self.graph_store.node_id('entity.entityId')} IN $entityIds
                 AND NOT {self.graph_store.node_id('other.entityId')} IN $excludeEntityIds
-                WITH entity, other, count(r) AS score ORDER BY score DESC
+                WITH entity, collect(DISTINCT {self.graph_store.node_id('other.entityId')})[0..$numNeighbours] AS others, count(r) AS score ORDER BY score DESC
                 RETURN {{
                     {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
-                    others: collect({self.graph_store.node_id('other.entityId')})[0..$numNeighbours]
+                    others: others
                 }} AS result    
                 """
 

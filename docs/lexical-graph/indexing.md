@@ -83,15 +83,17 @@ docs = SimpleWebPageReader(
     metadata_fn=lambda url:{'url': url}
 ).load_data(doc_urls)
 
-graph_store = GraphStoreFactory.for_graph_store(os.environ['GRAPH_STORE'])
-vector_store = VectorStoreFactory.for_vector_store(os.environ['VECTOR_STORE'])
+with (
+    GraphStoreFactory.for_graph_store(os.environ['GRAPH_STORE']) as graph_store,
+    VectorStoreFactory.for_vector_store(os.environ['VECTOR_STORE']) as vector_store
+):
 
-graph_index = LexicalGraphIndex(
-    graph_store, 
-    vector_store
-)
+    graph_index = LexicalGraphIndex(
+        graph_store, 
+        vector_store
+    )
 
-graph_index.extract_and_build(docs)
+    graph_index.extract_and_build(docs)
 ```
 
 #### Run the extract and build stages separately
@@ -103,6 +105,8 @@ When you run the extract and build stages separately, you can persist the extrac
 The following example shows how to use a `S3BasedDocs` handler to persist extracted documents to an Amazon S3 bucket at the end of the extract stage:
 
 ```python
+import os
+
 from graphrag_toolkit.lexical_graph import LexicalGraphIndex
 from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory
 from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
@@ -118,32 +122,36 @@ extracted_docs = S3BasedDocs(
     s3_encryption_key_id='arn:aws:kms:us-east-1:222222222222:key/99169dcb-12ce-4493-942b-1523125d7339'
 )
 
-graph_store = GraphStoreFactory.for_graph_store(graph_store_info)
-vector_store = VectorStoreFactory.for_vector_store(vector_store_info)
+with (
+    GraphStoreFactory.for_graph_store(os.environ['GRAPH_STORE']) as graph_store,
+    VectorStoreFactory.for_vector_store(os.environ['VECTOR_STORE']) as vector_store
+):
 
-graph_index = LexicalGraphIndex(
-    graph_store, 
-    vector_store
-)
+    graph_index = LexicalGraphIndex(
+        graph_store, 
+        vector_store
+    )
 
-doc_urls = [
-    'https://docs.aws.amazon.com/neptune/latest/userguide/intro.html',
-    'https://docs.aws.amazon.com/neptune-analytics/latest/userguide/what-is-neptune-analytics.html',
-    'https://docs.aws.amazon.com/neptune-analytics/latest/userguide/neptune-analytics-features.html',
-    'https://docs.aws.amazon.com/neptune-analytics/latest/userguide/neptune-analytics-vs-neptune-database.html'
-]
+    doc_urls = [
+        'https://docs.aws.amazon.com/neptune/latest/userguide/intro.html',
+        'https://docs.aws.amazon.com/neptune-analytics/latest/userguide/what-is-neptune-analytics.html',
+        'https://docs.aws.amazon.com/neptune-analytics/latest/userguide/neptune-analytics-features.html',
+        'https://docs.aws.amazon.com/neptune-analytics/latest/userguide/neptune-analytics-vs-neptune-database.html'
+    ]
 
-docs = SimpleWebPageReader(
-    html_to_text=True,
-    metadata_fn=lambda url:{'url': url}
-).load_data(doc_urls)
+    docs = SimpleWebPageReader(
+        html_to_text=True,
+        metadata_fn=lambda url:{'url': url}
+    ).load_data(doc_urls)
 
-graph_index.extract(docs, handler=extracted_docs)
+    graph_index.extract(docs, handler=extracted_docs)
 ```
 
 Following the extract stage, you can then build the graph from the previously extracted documents. Whereas in the extract stage the `S3BasedDocs` object acted as a handler to persist extracted documents, in the build stage the `S3BasedDocs` object acts as a source of LlamaIndex nodes, and is thus passed as the first argument to the `build()` method:
 
 ```python
+import os
+
 from graphrag_toolkit.lexical_graph import LexicalGraphIndex
 from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory
 from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
@@ -157,15 +165,17 @@ docs = S3BasedDocs(
     s3_encryption_key_id='arn:aws:kms:us-east-1:222222222222:key/99169dcb-12ce-4493-942b-1523125d7339'
 )
 
-graph_store = GraphStoreFactory.for_graph_store(graph_store_info)
-vector_store = VectorStoreFactory.for_vector_store(vector_store_info)
+with (
+    GraphStoreFactory.for_graph_store(os.environ['GRAPH_STORE']) as graph_store,
+    VectorStoreFactory.for_vector_store(os.environ['VECTOR_STORE']) as vector_store
+):
 
-graph_index = LexicalGraphIndex(
-    graph_store, 
-    vector_store
-)
+    graph_index = LexicalGraphIndex(
+        graph_store, 
+        vector_store
+    )
 
-graph_index.build(docs)
+    graph_index.build(docs)
 ```
 
 The `S3BasedDocs` object has the following parameters:

@@ -158,7 +158,7 @@ class FalkorDBDatabaseClient(GraphStore):
         request_log_entry_parameters = self.log_formatting.format_log_entry(
             self._logging_prefix(query_id, correlation_id), 
             cypher, 
-            json.dumps(parameters),
+            parameters,
         )
 
         logger.debug(f'[{request_log_entry_parameters.query_ref}] Query: [query: {request_log_entry_parameters.query}, parameters: {request_log_entry_parameters.parameters}]')

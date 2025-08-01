@@ -3,7 +3,8 @@ requires = ["hatchling", "hatch-requirements-txt"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/graphrag_toolkit"]
+packages = ["src/graphrag_toolkit_contrib"]
+
 
 [project]
 name = "graphrag-toolkit-lexical-graph-falkordb"
@@ -14,4 +15,4 @@ dynamic = ["dependencies"]
 license = "Apache-2.0"
 
 [tool.hatch.metadata.hooks.requirements_txt]
-files = ["src/graphrag_toolkit/lexical_graph/storage/graph/falkordb/requirements.txt"]
+files = ["src/graphrag_toolkit_contrib/lexical_graph/storage/graph/falkordb/requirements.txt"]
