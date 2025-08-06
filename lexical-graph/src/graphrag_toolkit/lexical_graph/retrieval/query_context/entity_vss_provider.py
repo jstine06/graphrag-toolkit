@@ -27,9 +27,9 @@ class EntityVSSProvider(EntityProviderBase):
         self.vector_store = vector_store
 
         
-    def _get_chunk_ids(self, keywords:List[str]) -> List[str]:
+    def _get_chunk_ids(self, values:List[str]) -> List[str]:
         
-        query_bundle =  QueryBundle(query_str=', '.join(keywords))
+        query_bundle =  QueryBundle(query_str=', '.join(values))
         vss_results = self.vector_store.get_index('chunk').top_k(query_bundle, 3, filter_config=self.filter_config)
 
         chunk_ids = [result['chunk']['chunkId'] for result in vss_results]
@@ -42,8 +42,11 @@ class EntityVSSProvider(EntityProviderBase):
 
         cypher = f"""
         // get entities for chunk ids
-        MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-(:`__Statement__`)
-        <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity)
+        MATCH (c:`__Chunk__`)
+            <-[:`__MENTIONED_IN__`]-()
+            <-[:`__BELONGS_TO__`]-()
+            <-[:`__SUPPORTS__`]-()
+            <-[:`__SUBJECT__`|`__OBJECT__`]-(entity)
         WHERE {self.graph_store.node_id("c.chunkId")} in $chunkIds
         WITH DISTINCT entity
         MATCH (entity)-[r:`__SUBJECT__`|`__OBJECT__`]->()
@@ -64,7 +67,6 @@ class EntityVSSProvider(EntityProviderBase):
         scored_entities = [
             ScoredEntity.model_validate(result['result'])
             for result in results
-            if result['result']['score'] != 0
         ]
 
         return scored_entities
@@ -97,9 +99,9 @@ class EntityVSSProvider(EntityProviderBase):
         
         return entities
     
-    def _get_reranked_entity_names_model(self, entities:List[ScoredEntity], keywords:List[str]) -> List[ScoredEntity]:
+    def _get_reranked_entity_names_model(self, entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
 
-        reranker = SentenceReranker(model=GraphRAGConfig.reranking_model, top_n=len(entities))
+        reranker = SentenceReranker(model=GraphRAGConfig.reranking_model, top_n=3)
         rank_query = QueryBundle(query_str=' '.join(keywords))
 
         reranked_values = reranker.postprocess_nodes(
@@ -117,50 +119,52 @@ class EntityVSSProvider(EntityProviderBase):
 
         return reranked_entity_names
     
-    def _get_reranked_entity_names_tfidf(self, entities:List[ScoredEntity], keywords:List[str]) -> List[ScoredEntity]:
+    def _get_reranked_entity_names_tfidf(self, entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
         
         entity_names = [entity.entity.value.lower() for entity in entities]
-        reranked_entity_names = score_values(entity_names, keywords, ngram_length=2)
+        reranked_entity_names = score_values(entity_names, keywords, 3)
 
         return reranked_entity_names
-
-                        
-    def _get_entities(self, keywords:List[str]) -> List[ScoredEntity]:
-
-        initial_entity_provider = EntityProvider(self.graph_store, self.args, self.filter_config)
-        initial_entities = initial_entity_provider.get_entities(keywords)
-
-        num_chunk_entities = max(self.args.ec_num_entities - len(initial_entities), 0)
-
-        reranked_entities = []
-        chunk_entities = []
-
-        if num_chunk_entities > 0:
-        
-            chunk_ids = self._get_chunk_ids(keywords)
-            chunk_entities = self._get_entities_for_chunks(chunk_ids)
-
-        logger.debug(f'initial_entities: {initial_entities}')
-        logger.debug(f'chunk_entities: {chunk_entities}')
-
-        reranked_entity_names = {}
-        all_entities = initial_entities + chunk_entities
+    
+    def _get_reranked_entity_names(self, entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
         
         if self.args.reranker == 'model':
-            reranked_entity_names = self._get_reranked_entity_names_model(all_entities, keywords) 
+            return self._get_reranked_entity_names_model(entities, keywords) 
         else:
-            reranked_entity_names = self._get_reranked_entity_names_tfidf(all_entities, keywords)
-
-        logger.debug(f'reranked_entity_names: {reranked_entity_names}')
-
-        updated_reranked_entity_names = self._update_reranked_entity_name_scores(reranked_entity_names, keywords)
-
-        logger.debug(f'updated_reranked_entity_names: {updated_reranked_entity_names}')
-
-        reranked_entities = self._get_reranked_entities(all_entities, updated_reranked_entity_names) 
-       
-        logger.debug(f'reranked_entities: {reranked_entities}')
+            return self._get_reranked_entity_names_tfidf(entities, keywords)
         
-        return reranked_entities
+    def _get_entities_by_keyword_match(self, keywords:List[str], query_bundle:QueryBundle) -> List[ScoredEntity]:
+        initial_entity_provider = EntityProvider(self.graph_store, self.args, self.filter_config)
+        return initial_entity_provider.get_entities(keywords, query_bundle)
+    
+    def _get_entities_for_value(self, keyword:str) -> List[ScoredEntity]:
+        chunk_ids = self._get_chunk_ids([keyword])
+        chunk_entities = self._get_entities_for_chunks(chunk_ids)
+
+        logger.debug(f'chunk entities: [keyword: {keyword}, chunk_ids: {chunk_ids}, entities: {chunk_entities}]')
+
+        reranked_entity_names = self._get_reranked_entity_names(chunk_entities, [keyword])
+        return self._get_reranked_entities(chunk_entities, reranked_entity_names)
+
+                        
+    def _get_entities(self, keywords:List[str], query_bundle:QueryBundle) -> List[ScoredEntity]:
+
+        all_entities_map = {}
+
+        def add_to_entities_map(entities):
+            all_entities_map.update({e.entity.entityId:e for e in entities})
+
+        add_to_entities_map(self._get_entities_by_keyword_match(keywords, query_bundle))
+        add_to_entities_map(self._get_entities_for_value(query_bundle.query_str)[:3])
+        
+        for keyword in keywords:
+            add_to_entities_map(self._get_entities_for_value(keyword)[:3])
+
+        all_reranked_entity_names = self._get_reranked_entity_names(list(all_entities_map.values()), [query_bundle.query_str] + keywords)
+        all_reranked_entities = self._get_reranked_entities(list(all_entities_map.values()), all_reranked_entity_names)
+             
+        logger.debug(f'reranked_entities: {all_reranked_entities}')
+        
+        return all_reranked_entities
 
         

@@ -10,6 +10,8 @@ from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorArgs
 
+from llama_index.core.schema import QueryBundle
+
 logger = logging.getLogger(__name__)
 
 class EntityProviderBase():
@@ -20,13 +22,13 @@ class EntityProviderBase():
         self.filter_config = filter_config
 
     @abc.abstractmethod                 
-    def _get_entities(self, keywords:List[str])  -> List[ScoredEntity]:
+    def _get_entities(self, keywords:List[str], query_bundle:QueryBundle)  -> List[ScoredEntity]:
         raise NotImplementedError
 
-    def get_entities(self, keywords:List[str])  -> List[ScoredEntity]:
+    def get_entities(self, keywords:List[str], query_bundle:QueryBundle)  -> List[ScoredEntity]:
         
         start = time.time()
-        entities = self._get_entities(keywords)
+        entities = self._get_entities(keywords, query_bundle)
         end = time.time()
         duration_ms = (end-start) * 1000
 

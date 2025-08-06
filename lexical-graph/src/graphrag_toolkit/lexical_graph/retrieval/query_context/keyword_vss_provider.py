@@ -20,21 +20,17 @@ from llama_index.core.schema import QueryBundle
 logger = logging.getLogger(__name__)
 
 IDENTIFY_RELEVANT_ENTITIES_PROMPT = '''
-You are an expert AI assistant specialising in knowledge graphs. Below is a user-supplied question a list of entities, and the context in which those entities appear. Given the question and the context, your task is to identify up to {num_entities} of the most relevant entities from the list. Return them, most relevant first. You do not have to return the maximum number of entities; you can return fewer. 
+You are an expert AI assistant specialising in knowledge graphs. Given a user-supplied question and a piece of context, your task is to identify up to {num_keywords} of the most relevant keywords from the context. Return them, most relevant first. You do not have to return the maximum number of keywords; you can return fewer. 
 
 <question>
 {question}
 </question>
 
-<entities>
-{entities}
-</entities>
-
 <context>
 {context}
 </context>
 
-Put the relevant entities on separate lines. Do not provide any other explanatory text. Do not surround the output with tags. Do not exceed {num_entities} entities in your response.
+Put the relevant keywords on separate lines. Do not provide any other explanatory text. Do not surround the output with tags. Do not exceed {num_keywords} keywords in your response.
 '''
 
 class KeywordVSSProvider(KeywordProviderBase):
@@ -85,51 +81,15 @@ class KeywordVSSProvider(KeywordProviderBase):
         chunk_content = [result['content'] for result in results]
 
         return chunk_content
-    
-    def _get_entities_for_chunks(self, chunk_ids:List[str]) -> List[ScoredEntity]:
-
-        cypher = f"""
-        // get entities for chunk ids
-        MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-(:`__Statement__`)
-        <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity)
-        -[r:`__RELATION`]-()
-        WHERE {self.graph_store.node_id("c.chunkId")} in $chunkIds
-        WITH DISTINCT entity, count(r) AS score ORDER BY score DESC LIMIT $limit
-        RETURN {{
-            {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
-            score: score
-        }} AS result
-        """
-
-        parameters = {
-            'chunkIds': chunk_ids,
-            'limit': self.args.intermediate_limit
-        }
-
-        results = self.graph_store.execute_query(cypher, parameters)
-
-        scored_entities = [
-            ScoredEntity.model_validate(result['result'])
-            for result in results
-            if result['result']['score'] != 0
-        ]
-
-        logger.debug(f'entities: {scored_entities}')
-
-        return scored_entities
         
  
-    def _get_keywords_for_entities(self, query:str, chunk_content:List[str], entities:List[ScoredEntity]) -> List[str]:
-
-        entity_names = list(set([entity.entity.value for entity in entities]))
-        num_entities = self.args.ec_num_entities
+    def _get_keywords_from_content(self, query:str, chunk_content:List[str]) -> List[str]:
 
         response = self.llm.predict(
             PromptTemplate(template=IDENTIFY_RELEVANT_ENTITIES_PROMPT),
             question=query,
             context='\n\n'.join(chunk_content),
-            entities='\n'.join(entity_names),
-            num_entities=num_entities
+            num_keywords=self.args.max_keywords
         )
 
         logger.debug(f'response: {response}')
@@ -142,7 +102,6 @@ class KeywordVSSProvider(KeywordProviderBase):
         
         chunk_ids =self._get_chunk_ids(query_bundle)
         chunk_content = self._get_chunk_content(chunk_ids)
-        entities = self._get_entities_for_chunks(chunk_ids)
-        keywords = self._get_keywords_for_entities(query_bundle.query_str, chunk_content, entities)
+        keywords = self._get_keywords_from_content(query_bundle.query_str, chunk_content)
         
         return keywords

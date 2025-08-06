@@ -13,7 +13,7 @@ from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.vector.vector_store import VectorStore
 from graphrag_toolkit.lexical_graph.retrieval.retrievers.traversal_based_base_retriever import TraversalBasedBaseRetriever
 from graphrag_toolkit.lexical_graph.retrieval.utils.query_decomposition import QueryDecomposition
-from graphrag_toolkit.lexical_graph.retrieval.retrievers.entity_context_search import EntityContextSearch
+from graphrag_toolkit.lexical_graph.retrieval.retrievers.entity_network_search import EntityNetworkSearch
 from graphrag_toolkit.lexical_graph.retrieval.retrievers.chunk_based_search import ChunkBasedSearch
 from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, SearchResult
 
@@ -42,8 +42,8 @@ class WeightedTraversalBasedRetriever:
     weight:float=1.0
 
 DEFAULT_TRAVERSAL_BASED_RETRIEVERS = [
-    WeightedTraversalBasedRetriever(retriever=ChunkBasedSearch, weight=0.2), 
-    WeightedTraversalBasedRetriever(retriever=EntityContextSearch, weight=1.0)
+    WeightedTraversalBasedRetriever(retriever=ChunkBasedSearch, weight=1.0), 
+    WeightedTraversalBasedRetriever(retriever=EntityNetworkSearch, weight=1.0)
 ]
 
 WeightedTraversalBasedRetrieverType = Union[WeightedTraversalBasedRetriever, TraversalBasedBaseRetriever, Type[TraversalBasedBaseRetriever]]
@@ -98,7 +98,13 @@ class CompositeTraversalBasedRetriever(TraversalBasedBaseRetriever):
         )
 
         self.query_decomposition = query_decomposition or QueryDecomposition(max_subqueries=self.args.max_subqueries)
-        self.weighted_retrievers:List[WeightedTraversalBasedRetrieverType] = retrievers or DEFAULT_TRAVERSAL_BASED_RETRIEVERS
+
+        retrievers = retrievers or DEFAULT_TRAVERSAL_BASED_RETRIEVERS
+
+        self.weighted_retrievers:List[WeightedTraversalBasedRetrieverType] = [
+            r if isinstance(r, WeightedTraversalBasedRetriever) else WeightedTraversalBasedRetriever(retriever=r, weight=1.0)
+            for r in retrievers
+        ]
 
     def get_start_node_ids(self, query_bundle: QueryBundle) -> List[str]:
         """
@@ -155,6 +161,8 @@ class CompositeTraversalBasedRetriever(TraversalBasedBaseRetriever):
 
         retrievers = []
 
+        total_weight = sum([wr.weight for wr in self.weighted_retrievers])
+
         for wr in self.weighted_retrievers:
             
             if not isinstance(wr, WeightedTraversalBasedRetriever):
@@ -162,16 +170,17 @@ class CompositeTraversalBasedRetriever(TraversalBasedBaseRetriever):
             
             sub_args = self.args.to_dict()
 
-            sub_args['intermediate_limit'] = weighted_arg(self.args.intermediate_limit, wr.weight, 2)
-            sub_args['limit_per_query'] = weighted_arg(self.args.query_limit, wr.weight, 1)
+            #sub_args['intermediate_limit'] = weighted_arg(self.args.intermediate_limit, wr.weight, 2)
+            #sub_args['limit_per_query'] = weighted_arg(self.args.query_limit, wr.weight, 1)
+            sub_args['max_search_results'] = self.args.max_search_results * int(math.ceil(wr.weight/total_weight))
 
             retriever = (wr.retriever if isinstance(wr.retriever, TraversalBasedBaseRetriever) 
                          else wr.retriever(
                             self.graph_store, 
                             self.vector_store,
-                            processors=[
-                                # No processing - just raw results
-                            ],
+                            # processors=[
+                            #     # No processing - just raw results
+                            # ],
                             formatting_processors=[
                                 # No processing - just raw results
                             ],

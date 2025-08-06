@@ -94,7 +94,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
         start = time.time()
             
-        all_chunks_ids = self._get_chunks_ids(query_bundle)
+        all_chunks_ids = []
         
         entity_context_strs = self._get_entity_context_strings()
 

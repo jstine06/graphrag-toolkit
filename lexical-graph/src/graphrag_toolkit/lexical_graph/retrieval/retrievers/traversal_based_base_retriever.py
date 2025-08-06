@@ -255,7 +255,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
             entity_context_provider = EntityContextProvider(self.graph_store, self.args)
 
             keywords = keyword_provider.get_keywords(query_bundle)
-            entities = entity_provider.get_entities(keywords)
+            entities = entity_provider.get_entities(keywords, query_bundle)
             entity_contexts = entity_context_provider.get_entity_contexts(entities, query_bundle)
 
             end = time.time()
