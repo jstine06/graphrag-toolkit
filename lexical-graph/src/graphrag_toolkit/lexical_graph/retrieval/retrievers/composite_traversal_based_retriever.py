@@ -161,8 +161,6 @@ class CompositeTraversalBasedRetriever(TraversalBasedBaseRetriever):
 
         retrievers = []
 
-        total_weight = sum([wr.weight for wr in self.weighted_retrievers])
-
         for wr in self.weighted_retrievers:
             
             if not isinstance(wr, WeightedTraversalBasedRetriever):
@@ -172,7 +170,7 @@ class CompositeTraversalBasedRetriever(TraversalBasedBaseRetriever):
 
             #sub_args['intermediate_limit'] = weighted_arg(self.args.intermediate_limit, wr.weight, 2)
             #sub_args['limit_per_query'] = weighted_arg(self.args.query_limit, wr.weight, 1)
-            sub_args['max_search_results'] = self.args.max_search_results * int(math.ceil(wr.weight/total_weight))
+            sub_args['max_search_results'] = math.ceil(self.args.max_search_results * wr.weight)
 
             retriever = (wr.retriever if isinstance(wr.retriever, TraversalBasedBaseRetriever) 
                          else wr.retriever(
