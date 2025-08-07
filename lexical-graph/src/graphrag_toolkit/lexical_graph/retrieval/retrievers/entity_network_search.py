@@ -10,6 +10,7 @@ from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.vector.vector_store import VectorStore
+from graphrag_toolkit.lexical_graph.storage.vector.dummy_vector_index import DummyVectorIndex
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorBase, ProcessorArgs
 from graphrag_toolkit.lexical_graph.retrieval.retrievers.traversal_based_base_retriever import TraversalBasedBaseRetriever
 
@@ -45,6 +46,9 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
             **kwargs: Extra keyword arguments passed to the superclass for extended
                 configurability.
         """
+
+        self.vector_type = 'topic' if not isinstance(vector_store.get_index('topic'), DummyVectorIndex) else 'chunk'
+
         super().__init__(
             graph_store=graph_store, 
             vector_store=vector_store,
@@ -54,16 +58,23 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
             **kwargs
         )
 
-    def _chunk_based_graph_search(self, chunk_id):
+    def _graph_search(self, node_id):
 
-        cypher = f'''// chunk-based graph search                                  
-        MATCH (l)-[:`__BELONGS_TO__`]->()-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
-        WHERE {self.graph_store.node_id("c.chunkId")} = $chunkId
-        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
-        '''
+        if self.vector_type == 'topic':
+            cypher = f'''// topic-based entity network search                                  
+            MATCH (l)-[:`__BELONGS_TO__`]->(t:`__Topic__`)
+            WHERE {self.graph_store.node_id("t.topicId")} = $nodeId
+            RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
+            '''
+        else:
+            cypher = f'''// chunk-based entity network search                                  
+            MATCH (l)-[:`__BELONGS_TO__`]->()-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)
+            WHERE {self.graph_store.node_id("c.chunkId")} = $nodeId
+            RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
+            '''
 
         properties = {
-            'chunkId': chunk_id,
+            'nodeId': node_id,
             'statementLimit': self.args.intermediate_limit
         }
 
@@ -83,38 +94,39 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
         return context_strs
     
-    def _get_chunks_ids(self, query_bundle: QueryBundle) -> List[str]:
+    def _get_node_ids(self, query_bundle: QueryBundle) -> List[str]:
 
-        top_k_results = self.vector_store.get_index('chunk').top_k(query_bundle)
-        chunk_ids = [result['chunk']['chunkId'] for result in top_k_results]
+        index_name = self.vector_type
+        id_name = f'{index_name}Id'
+
+        top_k_results = self.vector_store.get_index(index_name).top_k(query_bundle)
+        node_ids = [result[index_name][id_name] for result in top_k_results]
         
-        return chunk_ids
+        return node_ids
 
     def get_start_node_ids(self, query_bundle: QueryBundle) -> List[str]:
 
         start = time.time()
             
-        all_chunks_ids = []
+        all_start_node_ids = self._get_node_ids(query_bundle)
         
         entity_context_strs = self._get_entity_context_strings()
 
         for entity_context_str in entity_context_strs:
-            all_chunks_ids.extend(self._get_chunks_ids(QueryBundle(query_str=entity_context_str)))
+            all_start_node_ids.extend(self._get_node_ids(QueryBundle(query_str=entity_context_str)))
 
-        chunk_ids = list(set(all_chunks_ids))
+        start_node_ids = list(set(all_start_node_ids))
 
         end = time.time()
         duration_ms = (end-start) * 1000
 
-        logger.debug(f'chunk_ids: {chunk_ids} ({duration_ms:.2f}ms)')
+        logger.debug(f'start_node_ids: [{self.vector_type}] {start_node_ids} ({duration_ms:.2f}ms)')
         
-        return chunk_ids
+        return start_node_ids
 
     def do_graph_search(self, query_bundle:QueryBundle, start_node_ids:List[str]) -> SearchResultCollection:
         
-        chunk_ids = start_node_ids
-
-        logger.debug('Running entity-network search...')
+        logger.debug(f'Running {self.vector_type}-based entity-network search...')
 
         start = time.time()
         
@@ -123,8 +135,8 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.num_workers) as executor:
 
             futures = [
-                executor.submit(self._chunk_based_graph_search, chunk_id)
-                for chunk_id in chunk_ids
+                executor.submit(self._graph_search, node_id)
+                for node_id in start_node_ids
             ]
             
             executor.shutdown()
@@ -136,7 +148,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
         end = time.time()
         duration_ms = (end-start) * 1000
 
-        logger.debug(f'Retrieved {len(search_results)} search results for {len(chunk_ids)} chunks ({duration_ms:.2f}ms)')
+        logger.debug(f'Retrieved {len(search_results)} search results for {len(start_node_ids)} {self.vector_type}s ({duration_ms:.2f}ms)')
                     
         search_results_collection = self._to_search_results_collection(search_results) 
 

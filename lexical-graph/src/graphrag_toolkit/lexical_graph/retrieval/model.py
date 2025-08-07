@@ -32,6 +32,7 @@ class Statement(BaseModel):
     chunkId:Optional[str]=None
     score:Optional[float]=None
     statement_str:Optional[str]=None
+    retrievers:List[str]=[]
 
 StatementType = Union[Statement, str]
 

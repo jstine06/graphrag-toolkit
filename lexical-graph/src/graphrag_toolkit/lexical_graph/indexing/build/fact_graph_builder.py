@@ -146,7 +146,7 @@ class FactGraphBuilder(GraphBuilder):
 
             query_prev = '\n'.join(statements_prev)
                 
-            graph_client.execute_query_with_retry(query_prev, self._to_params(properties_prev), max_attempts=5, max_wait=7)
+            graph_client.execute_query_with_retry(query_prev, self._to_params(properties_prev), max_attempts=10, max_wait=10)
 
             if fact.object or fact.complement:
 
@@ -165,7 +165,7 @@ class FactGraphBuilder(GraphBuilder):
 
                 query_next = '\n'.join(statements_next)
                     
-                graph_client.execute_query_with_retry(query_next, self._to_params(properties_next), max_attempts=5, max_wait=7)
+                graph_client.execute_query_with_retry(query_next, self._to_params(properties_next), max_attempts=10, max_wait=10)
            
         else:
             logger.warning(f'fact_id missing from fact node [node_id: {node.node_id}]')

@@ -96,13 +96,13 @@ class TopicBasedSearch(TraversalBasedBaseRetriever):
         """
 
         cypher = f'''// topic-based graph search                                  
-        MATCH (f)-[:`__NEXT__`*0..1]-()-[:`__SUPPORTS__`]->()-[:`__BELONGS_TO__`]->(tt:`__Topic__`)
+        MATCH (f)-[:`__SUPPORTS__`]->()-[:`__BELONGS_TO__`]->(tt:`__Topic__`)
         WHERE {self.graph_store.node_id("tt.topicId")} = $topicId
         WITH f LIMIT $statementLimit
-        MATCH (f)-[:`__SUPPORTS__`]->()-[:`__PREVIOUS__`*0..2]-(l)
+        MATCH (f)-[:`__NEXT__`*0..1]-()-[:`__SUPPORTS__`]->(l)
         RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
         '''
-                                  
+                            
         properties = {
             'topicId': topic_id,
             'statementLimit': self.args.intermediate_limit

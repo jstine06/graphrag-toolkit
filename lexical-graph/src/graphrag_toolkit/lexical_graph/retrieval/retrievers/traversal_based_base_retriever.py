@@ -5,6 +5,7 @@ import logging
 import abc
 import time
 from typing import List, Any, Type, Optional
+from importlib.metadata import version, PackageNotFoundError
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
@@ -184,46 +185,6 @@ class TraversalBasedBaseRetriever(BaseRetriever):
 
         return statements_results
     
-    def create_cypher_query(self, match_clause):
-        """
-        Constructs a Cypher query string based on the provided match clause, tailoring it to retrieve data from a graph database.
-
-        This function generates a Cypher query dynamically to process relationships and nodes in the graph database.
-        It extracts information on sources, topics, statements, and chunks, organizing them into a structured result.
-        The query also includes mechanisms to calculate a score for result ordering.
-
-        Args:
-            match_clause: A string containing the match clause to append to the query. Used to identify which nodes and relationships to start the query from.
-
-        Returns:
-            str: The complete Cypher query string generated with the input match clause and predefined query logic.
-        """
-        return_clause = f'''
-        WITH DISTINCT l, t LIMIT $statementLimit
-        MATCH (l:`__Statement__`)-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)-[:`__EXTRACTED_FROM__`]->(s:`__Source__`)
-        OPTIONAL MATCH (f:`__Fact__`)-[:`__SUPPORTS__`]->(l:`__Statement__`)
-        WITH {{ sourceId: {self.graph_store.node_id("s.sourceId")}, metadata: s{{.*}}}} AS source,
-            t, l, c,
-            {{ chunkId: {self.graph_store.node_id("c.chunkId")}, value: NULL }} AS cc, 
-            {{ statementId: {self.graph_store.node_id("l.statementId")}, statement: l.value, facts: collect(distinct f.value), details: l.details, chunkId: {self.graph_store.node_id("c.chunkId")}, score: count(l) }} as ll
-        WITH source, 
-            t, 
-            collect(distinct cc) as chunks, 
-            collect(distinct ll) as statements
-        WITH source,
-            {{ 
-                topic: t.value, 
-                chunks: chunks,
-                statements: statements
-            }} as topic
-        RETURN {{
-            score: sum(size(topic.statements)/size(topic.chunks)), 
-            source: source,
-            topics: collect(distinct topic)
-        }} as result ORDER BY result.score DESC LIMIT $limit'''
-
-        return f'{match_clause}{return_clause}'
-    
     def _init_entity_contexts(self, query_bundle: QueryBundle) -> List[str]:
 
         if not self.entity_contexts:
@@ -344,11 +305,26 @@ class TraversalBasedBaseRetriever(BaseRetriever):
             SearchResultCollection: A collection object containing the validated and
             filtered search results.
         """
-        search_results = [
-            SearchResult.model_validate(result['result']) 
-            for result in results
-            if result['result'].get('source', None)
-        ]
+        
+        search_results = []
+        
+        for result in results:
+            if isinstance(result, SearchResult):
+                search_results.append(result)
+            elif result['result'].get('source', None):
+                search_results.append(SearchResult.model_validate(result['result']) )
+
+        try:
+            toolkit_version = f" ({version('graphrag-toolkit-lexical-graph')})"
+        except PackageNotFoundError:
+            toolkit_version = ''
+
+        retriever_name = f'{type(self).__name__}{toolkit_version}'
+
+        for result in search_results:
+            for topic in result.topics:
+                for statement in topic.statements:
+                    statement.retrievers.append(retriever_name)
 
         return SearchResultCollection(results=search_results, entity_contexts=self.entity_contexts)
 

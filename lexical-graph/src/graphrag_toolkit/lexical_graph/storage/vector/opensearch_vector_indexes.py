@@ -633,7 +633,7 @@ class OpenSearchIndex(VectorIndex):
                 If the index is marked as read-only.
         """
         if not self.writeable:
-            raise IndexError(f'Index {self.index_name()} is read-only')
+            raise IndexError(f'Index {self.index_name} is read-only')
             
         non_existent_node_ids = self._remove_existing_nodes([node.node_id for node in nodes])
         

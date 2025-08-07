@@ -139,7 +139,7 @@ class EntityContextSearch(TraversalBasedBaseRetriever):
                     search_results.append(SearchResult.model_validate(result.metadata['result']))
                     
                 
-        search_results_collection = SearchResultCollection(results=search_results, entity_contexts=self.entity_contexts) 
+        search_results_collection = self._to_search_results_collection(search_results) 
         
         retriever_name = type(self).__name__
         

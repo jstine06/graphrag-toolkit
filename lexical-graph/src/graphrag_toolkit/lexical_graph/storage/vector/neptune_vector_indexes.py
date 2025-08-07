@@ -170,6 +170,10 @@ class NeptuneIndex(VectorIndex):
         Returns:
             list: The processed list of nodes with updated embeddings in Neptune.
         """
+
+        if not self.writeable:
+            raise IndexError(f'Index {self.index_name} is read-only')
+        
         text_map = { node.node_id: node.text for node in nodes }
         
         for node in nodes:

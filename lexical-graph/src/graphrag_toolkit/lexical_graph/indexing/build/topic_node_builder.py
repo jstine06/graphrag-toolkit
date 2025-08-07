@@ -105,7 +105,7 @@ class TopicNodeBuilder(NodeBuilder):
                 continue
             existing_statements[statement.value] = None
             
-        node.metadata['statements'] = list(existing_statements.keys())
+        node.metadata['statements'] = ' '.join(list(existing_statements.keys()))
 
         return node
 
@@ -171,8 +171,10 @@ class TopicNodeBuilder(NodeBuilder):
                         id_ = topic_id,
                         text = topic.value,
                         metadata = metadata,
-                        excluded_embed_metadata_keys = [INDEX_KEY, 'topic'],
-                        excluded_llm_metadata_keys = [INDEX_KEY, 'topic']
+                        excluded_embed_metadata_keys = [INDEX_KEY, 'topic', 'source'],
+                        excluded_llm_metadata_keys = [INDEX_KEY, 'topic', 'source'],
+                        text_template='{content}\n\n{metadata_str}',
+                        metadata_template='{value}'
                     )
 
                     topic_nodes[topic_id] = topic_node

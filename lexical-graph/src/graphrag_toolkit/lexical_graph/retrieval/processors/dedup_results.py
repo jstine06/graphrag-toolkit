@@ -84,6 +84,7 @@ class DedupResults(ProcessorBase):
                                 existing_topic.statements.append(statement)
                             else:
                                 existing_statement.score += statement.score
+                                existing_statement.retrievers = list(set(existing_statement.retrievers + statement.retrievers))
                         
         for search_result in search_results.results:
             for topic in search_result.topics:

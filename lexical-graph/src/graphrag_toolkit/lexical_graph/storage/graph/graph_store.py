@@ -524,6 +524,9 @@ class GraphStore(BaseModel):
             A dictionary containing the results of the executed Cypher query.
         """
         raise NotImplementedError
+    
+    def init(self, graph_store=None):
+        pass
 
 
 
