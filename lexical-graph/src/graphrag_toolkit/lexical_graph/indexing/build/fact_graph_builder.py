@@ -5,7 +5,7 @@ import logging
 from typing import Any, Optional
 
 from graphrag_toolkit.lexical_graph.indexing.model import Fact
-from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
+from graphrag_toolkit.lexical_graph.storage.graph import GraphStore, Query, QueryTree
 from graphrag_toolkit.lexical_graph.indexing.build.graph_builder import GraphBuilder
 from graphrag_toolkit.lexical_graph.indexing.constants import LOCAL_ENTITY_CLASSIFICATION
 from graphrag_toolkit.lexical_graph.indexing.utils.fact_utils import string_complement_to_entity
@@ -130,42 +130,51 @@ class FactGraphBuilder(GraphBuilder):
                 if fact.complement and include_local_entities:
                     insert_entity_fact_relationship('object', fact.complement.entityId)
 
+            create_next_relationship = Query(
+                query=f"""// insert connection to prev facts
+                UNWIND $params AS params
+                MATCH (start{{{graph_client.node_id("factId")}: params.startId}}), (end{{{graph_client.node_id("factId")}: params.endId}})
+                MERGE (start)-[:`__NEXT__`]->(end)
+                """
+            )
 
-            statements_prev = [
-                '// insert connection to prev facts',
-                'UNWIND $params AS params',
-                f'MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__SUBJECT__`]-(:`__Entity__`)-[:`__OBJECT__`]->(prevFact:`__Fact__`)',
-                'WHERE fact <> prevFact // and NOT ((fact)<-[:`__NEXT__`]-(prevFact))', # NOT may be expensive - perhaps better to omit?
-                'WITH DISTINCT fact, prevFact',
-                'MERGE (fact)<-[:`__NEXT__`]-(prevFact)'
-            ]
+            find_start_end_for_prev_facts = Query(
+                query=f"""// get start and end facts for prev conection
+                UNWIND $params AS params
+                MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__SUBJECT__`]-(:`__Entity__`)-[:`__OBJECT__`]->(prevFact:`__Fact__`)
+                WHERE fact <> prevFact
+                RETURN {graph_client.node_id('prevFact.factId')} AS startId, {graph_client.node_id('fact.factId')} AS endId
+                """,
+                child_queries=[create_next_relationship]
+            )
 
-            properties_prev = {
+            params = {
                 'fact_id': fact.factId
             }
 
-            query_prev = '\n'.join(statements_prev)
-                
-            graph_client.execute_query_with_retry(query_prev, self._to_params(properties_prev), max_attempts=10, max_wait=10)
+            query_tree = QueryTree('insert-prev-facts', find_start_end_for_prev_facts)
+
+            graph_client.execute_query_with_retry(query_tree, self._to_params(params), max_attempts=10, max_wait=10)
 
             if fact.object or fact.complement:
 
-                statements_next = [
-                    '// insert connection to next facts',
-                    'UNWIND $params AS params',
-                    f'MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__OBJECT__`]-(:`__Entity__`)-[:`__SUBJECT__`]->(nextFact:`__Fact__`)',
-                    'WHERE fact <> nextFact // and NOT ((fact)-[:`__NEXT__`]->(nextFact))', # NOT may be expensive - perhaps better to omit?
-                    'WITH DISTINCT fact, nextFact',
-                    'MERGE (fact)-[:`__NEXT__`]->(nextFact)'
-                ]
+                find_start_end_for_next_facts = Query(
+                    query=f"""// get start and end facts for next conection
+                    UNWIND $params AS params
+                    MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__OBJECT__`]-(:`__Entity__`)-[:`__SUBJECT__`]->(nextFact:`__Fact__`)
+                    WHERE fact <> prevFact
+                    RETURN {graph_client.node_id('fact.factId')} AS startId, {graph_client.node_id('nextFact.factId')} AS endId
+                    """,
+                    child_queries=[create_next_relationship]
+                )
 
-                properties_next = {
-                    'fact_id': fact.factId
-                }
+                params = {
+                'fact_id': fact.factId
+            }
 
-                query_next = '\n'.join(statements_next)
-                    
-                graph_client.execute_query_with_retry(query_next, self._to_params(properties_next), max_attempts=10, max_wait=10)
+            query_tree = QueryTree('insert-prev-facts', find_start_end_for_next_facts)
+
+            graph_client.execute_query_with_retry(query_tree, self._to_params(params), max_attempts=10, max_wait=10)
            
         else:
             logger.warning(f'fact_id missing from fact node [node_id: {node.node_id}]')

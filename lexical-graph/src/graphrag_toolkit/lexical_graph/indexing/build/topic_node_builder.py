@@ -103,7 +103,9 @@ class TopicNodeBuilder(NodeBuilder):
         for statement in statements:
             if self.build_filters.ignore_statement(statement.value):
                 continue
-            existing_statements[statement.value] = None
+            details_str = '' if not statement.details else f" ({', '.join(statement.details)})"
+            statement_str = f'{statement.value}{details_str}'
+            existing_statements[statement_str] = None
             
         node.metadata['statements'] = ' '.join(list(existing_statements.keys()))
 

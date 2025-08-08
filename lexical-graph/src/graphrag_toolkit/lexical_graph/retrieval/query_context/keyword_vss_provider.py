@@ -93,6 +93,12 @@ class KeywordVSSProvider(KeywordProviderBase):
 
         content = []
 
+        def format_statement(result):
+            statement_str = result['statement']
+            details = result['details'].split('/n')
+            details_str = '' if not details else f" ({', '.join(details)})"
+            return f'{statement_str}{details_str}'
+
         def get_statements_for_topic(topic_id):
             
             cypher = f"""
@@ -100,7 +106,7 @@ class KeywordVSSProvider(KeywordProviderBase):
             MATCH (t:`__Topic__`)<-[:`__BELONGS_TO__`]-(s)<-[r:`__SUPPORTS__`]-()
             WHERE {self.graph_store.node_id("t.topicId")} = $topicId
             WITH s, count(r) AS score ORDER BY score DESC
-            RETURN s.value AS statement LIMIT $statementLimit
+            RETURN s.value AS statement, s.details AS details LIMIT $statementLimit
             """
 
             parameters = {
@@ -110,7 +116,7 @@ class KeywordVSSProvider(KeywordProviderBase):
 
             results = self.graph_store.execute_query(cypher, parameters)
 
-            return ' '.join(r['statement'] for r in results)
+            return '. '.join(format_statement(r) for r in results)
 
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.num_workers) as executor:
