@@ -26,11 +26,11 @@ class EntityVSSProvider(EntityProviderBase):
     def __init__(self, graph_store:GraphStore, vector_store:VectorStore, args:ProcessorArgs, filter_config:Optional[FilterConfig]=None):
         super().__init__(graph_store=graph_store, args=args, filter_config=filter_config)
         self.vector_store = vector_store
-        self.vector_type = 'topic' if not isinstance(vector_store.get_index('topic'), DummyVectorIndex) else 'chunk'
+        self.index_name = 'topic' if not isinstance(vector_store.get_index('topic'), DummyVectorIndex) else 'chunk'
         
     def _get_node_ids(self, keywords:List[str]) -> List[str]:
 
-        index_name = self.vector_type
+        index_name = self.index_name
         id_name = f'{index_name}Id'
         
         query_bundle =  QueryBundle(query_str=', '.join(keywords))
@@ -38,13 +38,13 @@ class EntityVSSProvider(EntityProviderBase):
 
         node_ids = [result[index_name][id_name] for result in vss_results]
 
-        logger.debug(f'node_ids: [index: {self.vector_type}, ids: {node_ids}]')
+        logger.debug(f'node_ids: [index: {self.index_name} ids: {node_ids}]')
 
         return node_ids
 
     def _get_entities_for_nodes(self, node_ids:List[str]) -> List[ScoredEntity]:
 
-        if self.vector_type == 'topic':
+        if self.index_name == 'topic':
             cypher = f"""
             // get entities for topic ids
             MATCH (t:`__Topic__`)<-[:`__BELONGS_TO__`]-(:`__Statement__`)

@@ -47,7 +47,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
                 configurability.
         """
 
-        self.vector_type = 'topic' if not isinstance(vector_store.get_index('topic'), DummyVectorIndex) else 'chunk'
+        self.index_name = 'topic' if not isinstance(vector_store.get_index('topic'), DummyVectorIndex) else 'chunk'
 
         super().__init__(
             graph_store=graph_store, 
@@ -60,7 +60,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
     def _graph_search(self, node_id):
 
-        if self.vector_type == 'topic':
+        if self.index_name == 'topic':
             cypher = f'''// topic-based entity network search                                  
             MATCH (l)-[:`__BELONGS_TO__`]->(t:`__Topic__`)
             WHERE {self.graph_store.node_id("t.topicId")} = $nodeId
@@ -96,7 +96,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
     
     def _get_node_ids(self, query_bundle: QueryBundle) -> List[str]:
 
-        index_name = self.vector_type
+        index_name = self.index_name
         id_name = f'{index_name}Id'
 
         top_k_results = self.vector_store.get_index(index_name).top_k(query_bundle)
@@ -126,7 +126,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
     def do_graph_search(self, query_bundle:QueryBundle, start_node_ids:List[str]) -> SearchResultCollection:
         
-        logger.debug(f'Running {self.vector_type}-based entity-network search...')
+        logger.debug(f'Running {self.index_name}-based entity-network search...')
 
         start = time.time()
         
@@ -148,7 +148,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
         end = time.time()
         duration_ms = (end-start) * 1000
 
-        logger.debug(f'Retrieved {len(search_results)} search results for {len(start_node_ids)} {self.vector_type}s ({duration_ms:.2f}ms)')
+        logger.debug(f'Retrieved {len(search_results)} search results for {len(start_node_ids)} {self.index_name}s ({duration_ms:.2f}ms)')
                     
         search_results_collection = self._to_search_results_collection(search_results) 
 

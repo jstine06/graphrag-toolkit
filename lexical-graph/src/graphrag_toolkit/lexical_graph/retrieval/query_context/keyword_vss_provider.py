@@ -50,8 +50,9 @@ class KeywordVSSProvider(KeywordProviderBase):
         self.graph_store = graph_store
         self.vector_store = vector_store
         self.filter_config = filter_config
-        self.vector_type = 'topic' if not isinstance(vector_store.get_index('topic'), DummyVectorIndex) else 'chunk'
-       
+
+        self.index_name = 'topic' if not isinstance(vector_store.get_index('topic'), DummyVectorIndex) else 'chunk'
+
         self.llm = llm if llm and isinstance(llm, LLMCache) else LLMCache(
             llm=llm or GraphRAGConfig.extraction_llm,
             enable_cache=GraphRAGConfig.enable_cache
@@ -59,7 +60,7 @@ class KeywordVSSProvider(KeywordProviderBase):
 
     def _get_node_ids(self, query_bundle:QueryBundle) -> List[str]:
 
-        index_name = self.vector_type
+        index_name = self.index_name
         id_name = f'{index_name}Id'
 
         vss_results = get_diverse_vss_elements(index_name, query_bundle, self.vector_store, 5, 3, self.filter_config)
@@ -116,8 +117,7 @@ class KeywordVSSProvider(KeywordProviderBase):
 
             results = self.graph_store.execute_query(cypher, parameters)
 
-            return '. '.join(format_statement(r) for r in results)
-
+            return '\n'.join(format_statement(r) for r in results)
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.num_workers) as executor:
 
@@ -136,7 +136,7 @@ class KeywordVSSProvider(KeywordProviderBase):
     
     def _get_content(self, node_ids:List[str]) -> List[str]:
 
-        if self.vector_type == 'topic':
+        if self.index_name == 'topic':
             return self._get_topic_content(node_ids)
         else:
             return self._get_chunk_content(node_ids)
