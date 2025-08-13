@@ -18,7 +18,7 @@
 		"DbInstanceType": {
 			"Description": "Neptune DB instance type (use db.serverless to provision a Neptune Serverless cluster)",
 			"Type": "String",
-			"Default": "db.serverless",
+			"Default": "db.r8g.large",
 			"AllowedValues": [
 				"db.serverless",
 				"db.r8g.large",
