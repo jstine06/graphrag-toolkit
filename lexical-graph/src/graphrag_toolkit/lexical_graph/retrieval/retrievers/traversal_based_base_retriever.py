@@ -193,6 +193,10 @@ class TraversalBasedBaseRetriever(BaseRetriever):
 
             self.entity_contexts = []
 
+            if self.args.ec_max_contexts < 1:
+                logger.debug(f'Ignoring retrieval of entity contexts because ec_max_contexts is {self.args.ec_max_contexts}')
+                return
+
             if self.args.ec_keyword_provider == 'vss':
                 keyword_provider = KeywordVSSProvider(self.graph_store, self.vector_store, self.args, self.filter_config)
             elif self.args.ec_keyword_provider == 'llm':
