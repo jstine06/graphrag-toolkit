@@ -1,3 +1,5 @@
+--only-binary :all:
+
 pydantic>=2.8.2
 boto3
 xmltodict
