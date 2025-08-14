@@ -80,6 +80,7 @@ class Topic(BaseModel):
     model_config = ConfigDict(strict=True)
 
     topic:str
+    topicId:str
     chunks:List[Chunk]=[]
     statements:List[StatementType]=[]  
 

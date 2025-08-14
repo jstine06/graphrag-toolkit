@@ -39,7 +39,8 @@ DEFAULT_PROCESSORS = [
 DEFAULT_FORMATTING_PROCESSORS = [
     StatementsToStrings,
     SimplifySingleTopicResults,
-    FormatSources
+    FormatSources,
+    ClearTopicIds
 ]
 
 class TraversalBasedBaseRetriever(BaseRetriever):
@@ -147,6 +148,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         WITH source,
             {{ 
                 topic: t.value, 
+                topicId: {self.graph_store.node_id("t.topicId")},
                 chunks: chunks,
                 statements: statements
             }} as topic
