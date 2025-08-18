@@ -120,7 +120,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
         end = time.time()
         duration_ms = (end-start) * 1000
 
-        logger.debug(f'start_node_ids: [index: {self.vector_type}, ids: {start_node_ids}] ({duration_ms:.2f}ms)')
+        logger.debug(f'start_node_ids: [index: {self.index_name}, ids: {start_node_ids}] ({duration_ms:.2f}ms)')
         
         return start_node_ids
 
