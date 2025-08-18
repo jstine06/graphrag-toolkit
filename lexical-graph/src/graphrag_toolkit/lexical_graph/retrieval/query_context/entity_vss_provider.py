@@ -158,7 +158,7 @@ class EntityVSSProvider(EntityProviderBase):
         node_ids = self._get_node_ids([keyword])
         entities = self._get_entities_for_nodes(node_ids)
 
-        logger.debug(f'entities: [keyword: {keyword}, {self.vector_type}_ids: {node_ids}, entities: {entities}]')
+        logger.debug(f'entities: [keyword: {keyword}, {self.index_name}_ids: {node_ids}, entities: {entities}]')
 
         reranked_entity_names = self._get_reranked_entity_names(entities, [keyword])
         return self._get_reranked_entities(entities, reranked_entity_names)
