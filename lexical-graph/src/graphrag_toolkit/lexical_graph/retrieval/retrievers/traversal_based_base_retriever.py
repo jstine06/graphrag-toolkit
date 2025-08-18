@@ -39,7 +39,8 @@ DEFAULT_PROCESSORS = [
 DEFAULT_FORMATTING_PROCESSORS = [
     StatementsToStrings,
     SimplifySingleTopicResults,
-    FormatSources
+    FormatSources,
+    ClearTopicIds
 ]
 
 class TraversalBasedBaseRetriever(BaseRetriever):
@@ -147,6 +148,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         WITH source,
             {{ 
                 topic: t.value, 
+                topicId: {self.graph_store.node_id("t.topicId")},
                 chunks: chunks,
                 statements: statements
             }} as topic
@@ -192,6 +194,10 @@ class TraversalBasedBaseRetriever(BaseRetriever):
             start = time.time()
 
             self.entity_contexts = []
+
+            if self.args.ec_max_contexts < 1:
+                logger.debug(f'Ignoring retrieval of entity contexts because ec_max_contexts is {self.args.ec_max_contexts}')
+                return
 
             if self.args.ec_keyword_provider == 'vss':
                 keyword_provider = KeywordVSSProvider(self.graph_store, self.vector_store, self.args, self.filter_config)
