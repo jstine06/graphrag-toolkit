@@ -22,6 +22,7 @@ class ByoKGQueryEngine:
                  graph_query_executor=None,
                  llm_generator=None,
                  kg_linker=None,
+                 cypher_kg_linker=None,
                  direct_query_linking=False):
         """
         Initialize the query engine.
@@ -91,6 +92,10 @@ class ByoKGQueryEngine:
         self.kg_linker_prompts = self.kg_linker.task_prompts
         self.kg_linker_prompts_iterative = self.kg_linker.task_prompts_iterative
 
+        if cypher_kg_linker is not None:
+            assert hasattr(cypher_kg_linker, "is_cypher_linker"), "cypher_kg_linker must be an instance of CypherKGLinker"
+        self.cypher_kg_linker = cypher_kg_linker
+
     def _add_to_context(self, context_list: List[str], new_items: List[str]) -> None:
         """
         Add new items to context list while maintaining order and avoiding duplicates.
@@ -104,6 +109,51 @@ class ByoKGQueryEngine:
             if item not in seen:
                 context_list.append(item)
                 seen.add(item)
+
+    def cypher_query(self, query: str, iterations: int = 2) -> Tuple[List[str], List[str]]:
+        """
+        Process a query through the retrieval and generation pipeline.
+
+        Args:
+            query: The search query
+            iterations: Number of retrieval iterations to perform
+
+        Returns:
+            List of retrieved_context_with_feedback
+        """
+        retrieved_context_with_feedback: List[str] = []
+
+        assert self.cypher_kg_linker is not None, "cypher_kg_linker must be initialized"
+        assert self.graph_query_executor is not None, "graph_query_executor must be initialized"
+
+        for iteration in range(iterations):
+            # Generate response for current iteration
+
+            response = self.cypher_kg_linker.generate_response(
+                question=query,
+                schema=self.schema,
+                graph_context="\n".join(retrieved_context_with_feedback) if retrieved_context_with_feedback else "",
+                task_prompts = self.cypher_kg_linker.task_prompts
+            )
+            artifacts = self.cypher_kg_linker.parse_response(response)
+
+            if "opencypher-linking" in artifacts:
+                linking_query = " ".join(artifacts["opencypher-linking"])
+                context, linked_entities_cypher = self.graph_query_executor.retrieve(linking_query, return_answers=True)
+                retrieved_context_with_feedback += context
+                context, linked_entities_cypher = self.graph_query_executor.retrieve(linking_query, return_answers=True)
+                if len(linked_entities_cypher) == 0:
+                    retrieved_context_with_feedback.append("No executable results for the above cypher query for entity linking. Please improve cypher generation in the future for linking.")
+                
+
+            if "opencypher" in artifacts:
+                graph_query = " ".join(artifacts["opencypher"])
+                context, answers = self.graph_query_executor.retrieve(graph_query, return_answers=True)
+                retrieved_context_with_feedback += context
+                if len(answers) == 0:
+                        retrieved_context_with_feedback.append("No executable resuls for the above. Please improve cypher generation in the future by focusing more on the given schema and the relations between node types.")
+
+        return retrieved_context_with_feedback
 
 
     def query(self, query: str, iterations: int = 1) -> Tuple[List[str], List[str]]:
@@ -193,100 +243,3 @@ class ByoKGQueryEngine:
             return answers, response
         else:
             raise NotImplementedError
-
-
-
-class CypherByoKGQueryEngine(ByoKGQueryEngine):
-    """
-    A query engine that uses openCypher queries to orchestrate the retrieval and generation pipeline for knowledge graph queries.
-    This class handles the high-level flow of query processing while delegating LLM-specific tasks to the CypherKGLinker.
-    """
-    def __init__(self, 
-                 graph_store,
-                 entity_linker=None,
-                 triplet_retriever=None,
-                 path_retriever=None,
-                 graph_query_executor=None,
-                 llm_generator=None,
-                 kg_linker=None):
-        """
-        Initialize the query engine.
-
-        Args:
-            graph_store: Component that provides access to graph data
-            entity_linker: Optional component for linking entities to graph nodes
-            triplet_retriever: Optional component for retrieving triplets
-            path_retriever: Optional component for retrieving paths
-            graph_query_executor: Optional component for executing graph queries
-            llm_generator: Optional language model for generating responses
-        """
-        self.graph_store = graph_store
-        self.schema = graph_store.get_schema()
-
-        if llm_generator is None:
-            from llm import BedrockGenerator
-            llm_generator= BedrockGenerator(
-                model_name='us.anthropic.claude-3-5-sonnet-20240620-v1:0',
-                region_name='us-west-2')
-        self.llm_generator = llm_generator
-            
-        if entity_linker is not None or triplet_retriever is not None or path_retriever is not None:
-            raise NotImplementedError
-
-        if graph_query_executor is None and hasattr(graph_store, 'execute_query'):
-            from graph_retrievers import GraphQueryRetriever
-            graph_query_executor = GraphQueryRetriever(self.graph_store)
-        self.graph_query_executor = graph_query_executor
-
-        if kg_linker is None:
-            from graph_connectors import CypherKGLinker
-            kg_linker = CypherKGLinker(
-                llm_generator=self.llm_generator,
-                graph_store=self.graph_store
-            )
-        self.kg_linker = kg_linker
-        self.kg_linker_prompts = self.kg_linker.task_prompts
-        self.kg_linker_prompts_iterative = self.kg_linker.task_prompts_iterative
-
-
-    def query(self, query: str, iterations: int = 2) -> Tuple[List[str], List[str]]:
-        """
-        Process a query through the retrieval and generation pipeline.
-
-        Args:
-            query: The search query
-            iterations: Number of retrieval iterations to perform
-
-        Returns:
-            Tuple of (retrieved context, final answers)
-        """
-        retrieved_context_with_feedback: List[str] = []
-
-        for iteration in range(iterations):
-            # Generate response for current iteration
-
-            response = self.kg_linker.generate_response(
-                question=query,
-                schema=self.schema,
-                graph_context="\n".join(retrieved_context_with_feedback) if retrieved_context_with_feedback else "",
-                task_prompts = self.kg_linker.task_prompts
-            )
-            artifacts = self.kg_linker.parse_response(response)
-
-            if "opencypher-linking" in artifacts:
-                linking_query = " ".join(artifacts["opencypher-linking"])
-                context, linked_entities_cypher = self.graph_query_executor.retrieve(linking_query, return_answers=True)
-                retrieved_context_with_feedback += context
-                context, linked_entities_cypher = self.graph_query_executor.retrieve(linking_query, return_answers=True)
-                if len(linked_entities_cypher) == 0:
-                    retrieved_context_with_feedback.append("No executable results for the above cypher query for entity linking. Please improve cypher generation in the future for linking.")
-                
-
-            if "opencypher" in artifacts:
-                graph_query = " ".join(artifacts["opencypher"])
-                context, answers = self.graph_query_executor.retrieve(graph_query, return_answers=True)
-                retrieved_context_with_feedback += context
-                if len(answers) == 0:
-                        retrieved_context_with_feedback.append("No executable resuls for the above. Please improve cypher generation in the future by focusing more on the given schema and the relations between node types.")
-
-        return retrieved_context_with_feedback

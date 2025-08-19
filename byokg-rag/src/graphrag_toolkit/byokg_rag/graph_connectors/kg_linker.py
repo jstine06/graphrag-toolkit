@@ -153,6 +153,9 @@ class CypherKGLinker(KGLinker):
             "draft-answer-generation": {"pattern": r"<answers>(.*?)</answers>"},
         }
 
+    def is_cypher_linker(self): #function to test if is instance of CypherKGLinker
+        return True
+
 
     def get_tasks(self, graph_store):
         tasks =  graph_store.get_linker_tasks()

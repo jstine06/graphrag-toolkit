@@ -119,6 +119,7 @@ opencypher-linking: '''
     Construct a complete, executable OpenCypher statement that will retrieve those matched keywords or entities from a graph database.
     - Your query must only use node types, relationship types, and properties defined in the provided schema
     - Include appropriate MATCH patterns, WHERE clauses, and RETURN statements
+    - Prefer toLower() and CONTAINS for WHERE clauses on keywords for more robustness
     - Handle any filtering, aggregation, or sorting required by the question
     - **If execution feedback is provided, ensure your query does not make the same errors**
     - Limit the return results to 5 at this step.
