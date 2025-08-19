@@ -3,6 +3,7 @@
 
 import logging
 import abc
+import queue
 
 from typing import Sequence, Any, List, Dict, Optional
 from llama_index.core.schema import QueryBundle, BaseNode
@@ -148,6 +149,7 @@ class VectorIndex(BaseModel):
             NotImplementedError: If the subclass does not implement this method.
         """
         raise NotImplementedError
+
 
     @abc.abstractmethod
     def get_embeddings(self, ids:List[str]=[]) -> Sequence[Dict[str, Any]]:

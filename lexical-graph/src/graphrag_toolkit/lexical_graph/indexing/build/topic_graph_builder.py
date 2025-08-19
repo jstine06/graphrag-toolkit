@@ -68,13 +68,7 @@ class TopicGraphBuilder(GraphBuilder):
 
             statements = [
                 '// insert topics',
-                'UNWIND $params AS params'
-            ]
-            
-
-            chunk_ids =  [ {'chunk_id': chunkId} for chunkId in topic.chunkIds]
-
-            statements.extend([
+                'UNWIND $params AS params',
                 f'MERGE (topic:`__Topic__`{{{graph_client.node_id("topicId")}: params.topic_id}})',
                 'ON CREATE SET topic.value=params.title',
                 'ON MATCH SET topic.value=params.title',
@@ -82,7 +76,9 @@ class TopicGraphBuilder(GraphBuilder):
                 'UNWIND params.chunk_ids as chunkIds',
                 f'MERGE (chunk:`__Chunk__`{{{graph_client.node_id("chunkId")}: chunkIds.chunk_id}})',
                 'MERGE (topic)-[:`__MENTIONED_IN__`]->(chunk)'
-            ])
+            ]
+
+            chunk_ids =  [ {'chunk_id': chunkId} for chunkId in topic.chunkIds]
 
             properties = {
                 'topic_id': topic.topicId,

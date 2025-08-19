@@ -13,7 +13,7 @@ from graphrag_toolkit.lexical_graph.tenant_id import TenantIdType, to_tenant_id
 from graphrag_toolkit.lexical_graph.config import GraphRAGConfig
 from graphrag_toolkit.lexical_graph.utils import LLMCache, LLMCacheType
 from graphrag_toolkit.lexical_graph.retrieval.post_processors.bedrock_context_format import BedrockContextFormat
-from graphrag_toolkit.lexical_graph.retrieval.retrievers import CompositeTraversalBasedRetriever, SemanticGuidedRetriever
+from graphrag_toolkit.lexical_graph.retrieval.retrievers import CompositeTraversalBasedRetriever, SemanticGuidedRetriever, QueryModeRetriever
 from graphrag_toolkit.lexical_graph.retrieval.retrievers import StatementCosineSimilaritySearch, KeywordRankingSearch, SemanticBeamGraphSearch
 from graphrag_toolkit.lexical_graph.retrieval.retrievers import WeightedTraversalBasedRetrieverType, SemanticGuidedRetrieverType
 from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory, GraphStoreType
@@ -107,13 +107,18 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
             )
         )
 
-        retriever = CompositeTraversalBasedRetriever(
-            graph_store,
-            vector_store,
-            retrievers=retrievers,
-            filter_config=filter_config,
-            **kwargs
-        )
+        def create_retriever(**retriever_kwargs):
+            return CompositeTraversalBasedRetriever(
+                graph_store,
+                vector_store,
+                retrievers=retrievers,
+                filter_config=filter_config,
+                **retriever_kwargs
+            )
+        
+        context_format = kwargs.pop('context_format', 'text')
+        
+        retriever = QueryModeRetriever(create_retriever, **kwargs)
 
         return LexicalGraphQueryEngine(
             graph_store,
@@ -121,7 +126,7 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
             tenant_id=tenant_id,
             retriever=retriever,
             post_processors=post_processors,
-            context_format='text',
+            context_format=context_format,
             filter_config=filter_config,
             **kwargs
         )
@@ -205,6 +210,9 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
             filter_config=filter_config,
             **kwargs
         )
+
+        if 'context_format' in kwargs:
+            kwargs.pop('context_format')
 
         return LexicalGraphQueryEngine(
             graph_store,
@@ -300,7 +308,8 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
     def _generate_response(
             self,
             query_bundle: QueryBundle,
-            context: str
+            search_results: str,
+            additional_context: List[str] = []
     ) -> str:
         """
         Generates a response to a query by utilizing a language model with the provided query
@@ -310,7 +319,7 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
         Args:
             query_bundle: An object containing structured query information, including the query
                 string needed for response generation.
-            context: A string representing context or search results that augment the query
+            search_results: A string representing context or search results that augment the query
                 information during response generation.
 
         Returns:
@@ -321,28 +330,31 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
             response = self.llm.predict(
                 prompt=self.chat_template,
                 query=query_bundle.query_str,
-                search_results=context
+                search_results=search_results,
+                additionalContext='\n'.join(additional_context)
             )
             return response
         except Exception:
-            logger.exception(f'Error answering query [query: {query_bundle.query_str}, context: {context}]')
+            logger.exception(f'Error answering query [query: {query_bundle.query_str}, search_results: {search_results}, additional_context: {additional_context}]')
             raise
 
     def _generate_streaming_response(
             self,
             query_bundle: QueryBundle,
-            context: str
+            search_results: str,
+            additional_context: List[str] = []
     ) -> TokenGen:
        
         try:
             response = self.llm.stream(
                 prompt=self.chat_template,
                 query=query_bundle.query_str,
-                search_results=context
+                search_results=search_results,
+                additionalContext='\n'.join(additional_context)
             )
             return response
         except Exception:
-            logger.exception(f'Error answering query [query: {query_bundle.query_str}, context: {context}]')
+            logger.exception(f'Error answering query [query: {query_bundle.query_str}, search_results: {search_results}, additional_context: {additional_context}]')
             raise
 
     def _format_as_text(self, json_results):
@@ -406,6 +418,12 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
             data = json.dumps(json_results, indent=2)
 
         return data
+    
+    def _get_entity_contexts(self, search_results: List[NodeWithScore]) -> List[str]:
+        if not search_results:
+            return []
+        
+        return search_results[0].metadata.get('entity_contexts', [])
 
     def retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """
@@ -431,7 +449,7 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
             results = post_processor.postprocess_nodes(results, query_bundle)
 
         return results
-
+    
     def _query(self, query_bundle: QueryBundle) -> RESPONSE_TYPE:
         """
         Executes a query against the system and processes the results to generate a
@@ -468,10 +486,12 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
             end_postprocessing = time.time()
 
             context = self._format_context(results, self.context_format)
+            entity_contexts = self._get_entity_contexts(results)
+            
             if self.streaming:
-                answer = self._generate_streaming_response(query_bundle, context)
+                answer = self._generate_streaming_response(query_bundle, context, entity_contexts)
             else:
-                answer = self._generate_response(query_bundle, context)
+                answer = self._generate_response(query_bundle, context, entity_contexts)
 
             end = time.time()
 
@@ -490,6 +510,7 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
                 'query': query_bundle.query_str,
                 'postprocessors': [type(p).__name__ for p in self.post_processors],
                 'context': context,
+                'entity_contexts': entity_contexts,
                 'num_source_nodes': len(results)
             }
 

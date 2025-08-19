@@ -69,14 +69,11 @@ class StatementGraphBuilder(GraphBuilder):
 
                 statements = [
                     '// insert statements',
-                    'UNWIND $params AS params'
-                ]
-
-                statements.extend([
+                    'UNWIND $params AS params',
                     f'MERGE (statement:`__Statement__`{{{graph_client.node_id("statementId")}: params.statement_id}})',
                     'ON CREATE SET statement.value=params.value, statement.details=params.details',
                     'ON MATCH SET statement.value=params.value, statement.details=params.details' 
-                ])
+                ]
 
                 properties = {
                     'statement_id': statement.statementId,
@@ -84,30 +81,67 @@ class StatementGraphBuilder(GraphBuilder):
                     'details': '\n'.join(s for s in statement.details)
                 }
 
-                if statement.chunkId:
-                    statements.extend([
-                        f'MERGE (chunk:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.chunk_id}})',
-                        'MERGE (statement)-[:`__MENTIONED_IN__`]->(chunk)'
-                    ])
-                    properties['chunk_id'] = statement.chunkId
-
-                if statement.topicId:
-                    statements.extend([
-                        f'MERGE (topic:`__Topic__`{{{graph_client.node_id("topicId")}: params.topic_id}})',
-                        'MERGE (statement)-[:`__BELONGS_TO__`]->(topic)'
-                    ])
-                    properties['topic_id'] = statement.topicId
-
-                if prev_statement:
-                    statements.extend([
-                        f'MERGE (prev_statement:`__Statement__`{{{graph_client.node_id("statementId")}: params.prev_statement_id}})',
-                        'MERGE (statement)-[:`__PREVIOUS__`]->(prev_statement)'
-                    ])
-                    properties['prev_statement_id'] = prev_statement.statementId
-                
                 query = '\n'.join(statements)
 
-                graph_client.execute_query_with_retry(query, self._to_params(properties))
+                graph_client.execute_query_with_retry(query, self._to_params(properties), max_attempts=5, max_wait=7)
+
+
+                if statement.chunkId:
+
+                    statements_c = [
+                        '// insert statement-chunk relationships',
+                        'UNWIND $params AS params',
+                        f'MERGE (statement:`__Statement__`{{{graph_client.node_id("statementId")}: params.statement_id}})',
+                        f'MERGE (chunk:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.chunk_id}})',
+                        'MERGE (statement)-[:`__MENTIONED_IN__`]->(chunk)'
+                    ]
+
+                    properties_c = {
+                        'statement_id': statement.statementId,
+                        'chunk_id': statement.chunkId
+                    }
+
+                    query_c = '\n'.join(statements_c)
+
+                    graph_client.execute_query_with_retry(query_c, self._to_params(properties_c), max_attempts=5, max_wait=7)
+
+                if statement.topicId:
+
+                    statements_t = [
+                        '// insert statement-topic relationships',
+                        'UNWIND $params AS params',
+                        f'MERGE (statement:`__Statement__`{{{graph_client.node_id("statementId")}: params.statement_id}})',
+                        f'MERGE (topic:`__Topic__`{{{graph_client.node_id("topicId")}: params.topic_id}})',
+                        'MERGE (statement)-[:`__BELONGS_TO__`]->(topic)'
+                    ]
+
+                    properties_t = {
+                        'statement_id': statement.statementId,
+                        'topic_id': statement.topicId
+                    }
+
+                    query_t = '\n'.join(statements_t)
+
+                    graph_client.execute_query_with_retry(query_t, self._to_params(properties_t), max_attempts=5, max_wait=7)
+
+                if prev_statement:
+
+                    statements_p = [
+                        '// insert statement-statement prev relationships',
+                        'UNWIND $params AS params',
+                        f'MERGE (statement:`__Statement__`{{{graph_client.node_id("statementId")}: params.statement_id}})',
+                        f'MERGE (prev_statement:`__Statement__`{{{graph_client.node_id("statementId")}: params.prev_statement_id}})',
+                        'MERGE (statement)-[:`__PREVIOUS__`]->(prev_statement)'
+                    ]
+
+                    properties_p = {
+                        'statement_id': statement.statementId,
+                        'prev_statement_id': prev_statement.statementId
+                    }
+
+                    query_p = '\n'.join(statements_p)
+
+                    graph_client.execute_query_with_retry(query_p, self._to_params(properties_p), max_attempts=5, max_wait=7)
 
         else:
             logger.warning(f'statement_id missing from statement node [node_id: {node.node_id}]')   

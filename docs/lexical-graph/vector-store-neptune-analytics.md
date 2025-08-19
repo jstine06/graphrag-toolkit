@@ -22,6 +22,7 @@ from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
 
 neptune_connection_info = 'neptune-graph://g-jbzzaqb209'
 
-vector_store = VectorStoreFactory.for_vector_store(neptune_connection_info)
+with VectorStoreFactory.for_vector_store(neptune_connection_info) as vector_store:
+    ...
 ```
 

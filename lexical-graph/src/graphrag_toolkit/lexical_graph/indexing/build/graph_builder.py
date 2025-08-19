@@ -36,7 +36,7 @@ class GraphBuilder(BaseComponent):
         Returns:
             Dict: A dictionary wrapping the input as a value under the key `'params'`.
         """
-        return { 'params': [p] }
+        return { 'params': [p] if p else [] }
 
     @classmethod
     @abc.abstractmethod

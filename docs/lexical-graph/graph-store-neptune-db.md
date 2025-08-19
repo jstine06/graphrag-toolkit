@@ -23,7 +23,8 @@ from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory
 
 neptune_connection_info = 'neptune-db://mydbcluster.cluster-123456789012.us-east-1.neptune.amazonaws.com:8182'
 
-graph_store = GraphStoreFactory.for_graph_store(neptune_connection_info)
+with GraphStoreFactory.for_graph_store(neptune_connection_info) as graph_store:
+    ...
 ```
 
 #### Connecting to Neptune via a proxy
@@ -41,8 +42,9 @@ config = {
     }
 }
 
-graph_store = GraphStoreFactory.for_graph_store(
-    neptune_connection_info,
-    config=config
-)
+with GraphStoreFactory.for_graph_store(
+        neptune_connection_info,
+        config=config
+    ) as graph_store:
+    ...
 ```

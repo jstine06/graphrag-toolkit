@@ -1,4 +1,4 @@
-# Copyright FalkorDB.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -424,7 +424,7 @@ class PGIndex(VectorIndex):
                 potentially with modifications or updates to their embeddings.
         """
         if not self.writeable:
-            raise IndexError(f'Index {self.index_name()} is read-only')
+            raise IndexError(f'Index {self.index_name} is read-only')
 
         dbconn = self._get_connection()
         cur = dbconn.cursor()

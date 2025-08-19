@@ -143,9 +143,9 @@ class ProcessorBase(object):
             statement_str: The statement or information to be formatted.
 
         Returns:
-            str: A formatted string combining the topic, statement, and source.
+            str: A formatted string combining the topic and statement.
         """
-        return f'{topic_str}: {statement_str}; {source_str}'
+        return f'{topic_str}: {statement_str}'
 
     def _log_counts(self, retriever_name:str, title:str, search_results:SearchResultCollection):
         """

@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from graphrag_toolkit.lexical_graph.indexing.model import Fact
-from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
+from graphrag_toolkit.lexical_graph.storage.graph import GraphStore, Query, QueryTree
 from graphrag_toolkit.lexical_graph.indexing.build.graph_builder import GraphBuilder
 from graphrag_toolkit.lexical_graph.indexing.constants import LOCAL_ENTITY_CLASSIFICATION
 from graphrag_toolkit.lexical_graph.indexing.utils.fact_utils import string_complement_to_entity
@@ -74,17 +74,13 @@ class FactGraphBuilder(GraphBuilder):
 
             statements = [
                 '// insert facts',
-                'UNWIND $params AS params'
-            ]
-
-            
-            statements.extend([
+                'UNWIND $params AS params',
                 f'MERGE (statement:`__Statement__`{{{graph_client.node_id("statementId")}: params.statement_id}})',
                 f'MERGE (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})',
                 'ON CREATE SET fact.relation = params.p, fact.value = params.fact',
                 'ON MATCH SET fact.relation = params.p, fact.value = params.fact',
-                'MERGE (fact)-[:`__SUPPORTS__`]->(statement)',
-            ])
+                'MERGE (fact)-[:`__SUPPORTS__`]->(statement)'
+            ]
 
             properties = {
                 'statement_id': fact.statementId,
@@ -92,78 +88,93 @@ class FactGraphBuilder(GraphBuilder):
                 'fact': node.text
             }
 
-            allow_add_entities = include_local_entities if fact.subject.classification and fact.subject.classification == LOCAL_ENTITY_CLASSIFICATION else True
-
-            if allow_add_entities:
-                
-                statements.append(f'MERGE (subject:`__Entity__`{{{graph_client.node_id("entityId")}: params.s_id}})')
-                statements.append(f'MERGE (subject)-[:`__SUBJECT__`]->(fact)')
-
-                properties.update({
-                    's_id': fact.subject.entityId,
-                    'p': fact.predicate.value
-                })
-
-                if fact.object:
-
-                    statements.append(f'MERGE (object:`__Entity__`{{{graph_client.node_id("entityId")}: params.o_id}})')
-                    statements.append(f'MERGE (object)-[:`__OBJECT__`]->(fact)')
-
-                    properties.update({                
-                        'o_id': fact.object.entityId
-                    })
-
-                elif fact.complement and include_local_entities:
-
-                    statements.append(f'MERGE (complement:`__Entity__`{{{graph_client.node_id("entityId")}: params.c_id}})')
-                    statements.append(f'MERGE (complement)-[:`__OBJECT__`]->(fact)')
-
-                    properties.update({                
-                        'c_id': fact.complement.entityId
-                    })
-        
             query = '\n'.join(statements)
                 
             graph_client.execute_query_with_retry(query, self._to_params(properties), max_attempts=5, max_wait=7)
 
-            statements = [
-                '// insert connection to prev facts',
-                'UNWIND $params AS params'
-            ]
+            def insert_entity_fact_relationship(relationship_type:str, entity_id:Optional[str]=None):
 
-            statements.extend([
-                f'MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__SUBJECT__`]-(:`__Entity__`)-[:`__OBJECT__`]->(prevFact:`__Fact__`)',
-                'MERGE (fact)<-[:`__NEXT__`]-(prevFact)'
-            ])
+                statements_e2f = [
+                    f'// insert entity-fact {relationship_type.lower()} relationship',
+                    'UNWIND $params AS params',
+                    f'MERGE (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})',
+                    f'MERGE (entity:`__Entity__`{{{graph_client.node_id("entityId")}: params.entity_id}})',
+                    f'MERGE (entity)-[:`__{relationship_type.upper()}__`]->(fact)'              
+                ]
 
-            properties = {
+                properties_e2f = {}
+
+                if entity_id:
+                    properties_e2f['fact_id'] = fact.factId
+                    properties_e2f['entity_id'] = entity_id
+        
+                query_e2f = '\n'.join(statements_e2f)
+                
+                graph_client.execute_query_with_retry(query_e2f, self._to_params(properties_e2f), max_attempts=5, max_wait=7)
+
+            
+            insert_entity_fact_relationship('subject')
+            insert_entity_fact_relationship('object')
+            
+            if fact.subject.classification == LOCAL_ENTITY_CLASSIFICATION:
+                if include_local_entities:
+                    insert_entity_fact_relationship('subject', fact.subject.entityId)
+                    if fact.object:
+                        insert_entity_fact_relationship('object', fact.object.entityId)
+                    if fact.complement:
+                        insert_entity_fact_relationship('object', fact.complement.entityId)
+            else:
+                insert_entity_fact_relationship('subject', fact.subject.entityId)
+                if fact.object:
+                    insert_entity_fact_relationship('object', fact.object.entityId)          
+                if fact.complement and include_local_entities:
+                    insert_entity_fact_relationship('object', fact.complement.entityId)
+
+            create_next_relationship = Query(
+                query=f"""// insert connection to prev facts
+                UNWIND $params AS params
+                MATCH (start{{{graph_client.node_id("factId")}: params.startId}}), (end{{{graph_client.node_id("factId")}: params.endId}})
+                MERGE (start)-[:`__NEXT__`]->(end)
+                """
+            )
+
+            find_start_end_for_prev_facts = Query(
+                query=f"""// get start and end facts for prev conection
+                UNWIND $params AS params
+                MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__SUBJECT__`]-(:`__Entity__`)-[:`__OBJECT__`]->(prevFact:`__Fact__`)
+                WHERE fact <> prevFact
+                RETURN {graph_client.node_id('prevFact.factId')} AS startId, {graph_client.node_id('fact.factId')} AS endId
+                """,
+                child_queries=[create_next_relationship]
+            )
+
+            params = {
                 'fact_id': fact.factId
             }
 
-            query = '\n'.join(statements)
-                
-            graph_client.execute_query_with_retry(query, self._to_params(properties), max_attempts=5, max_wait=7)
+            query_tree = QueryTree('insert-prev-facts', find_start_end_for_prev_facts)
+
+            graph_client.execute_query_with_retry(query_tree, self._to_params(params), max_attempts=10, max_wait=10)
 
             if fact.object or fact.complement:
 
-                statements = [
-                    '// insert connection to next facts',
-                    'UNWIND $params AS params'
-                ]
-            
-                statements.extend([
-                    f'MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__OBJECT__`]-(:`__Entity__`)-[:`__SUBJECT__`]->(nextFact:`__Fact__`)',
-                    'MERGE (fact)-[:`__NEXT__`]->(nextFact)'
-                ])
+                find_start_end_for_next_facts = Query(
+                    query=f"""// get start and end facts for next conection
+                    UNWIND $params AS params
+                    MATCH (fact:`__Fact__`{{{graph_client.node_id("factId")}: params.fact_id}})<-[:`__OBJECT__`]-(:`__Entity__`)-[:`__SUBJECT__`]->(nextFact:`__Fact__`)
+                    WHERE fact <> prevFact
+                    RETURN {graph_client.node_id('fact.factId')} AS startId, {graph_client.node_id('nextFact.factId')} AS endId
+                    """,
+                    child_queries=[create_next_relationship]
+                )
 
-                properties = {
-                    'fact_id': fact.factId
-                }
+                params = {
+                'fact_id': fact.factId
+            }
 
-                query = '\n'.join(statements)
-                    
-                graph_client.execute_query_with_retry(query, self._to_params(properties), max_attempts=5, max_wait=7)
+            query_tree = QueryTree('insert-prev-facts', find_start_end_for_next_facts)
+
+            graph_client.execute_query_with_retry(query_tree, self._to_params(params), max_attempts=10, max_wait=10)
            
-
         else:
             logger.warning(f'fact_id missing from fact node [node_id: {node.node_id}]')

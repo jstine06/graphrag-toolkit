@@ -271,7 +271,7 @@ async def process_batch_output(local_output_directory:str, input_filename:str, l
         if filename.startswith(input_filename):
             output_filepath = os.path.join(local_output_directory, filename)
             logger.debug(f'[Batch outputs] Started parsing output file {output_filepath}')
-            with open(output_filepath, 'r') as jsonl_file:
+            with open(output_filepath, 'r', encoding='utf-8') as jsonl_file:
                 for line in jsonl_file:
                     json_data = json.loads(line)
                     record_id = json_data.get('recordId')

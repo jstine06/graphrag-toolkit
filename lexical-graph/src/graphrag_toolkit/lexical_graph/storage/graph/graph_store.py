@@ -9,7 +9,7 @@ from tenacity import Retrying, stop_after_attempt, wait_random
 from tenacity import RetryCallState
 from typing import Callable, List, Dict, Any, Optional
 
-from graphrag_toolkit.lexical_graph import TenantId
+from graphrag_toolkit.lexical_graph import TenantId, GraphQueryError
 
 from llama_index.core.bridge.pydantic import BaseModel, Field
 
@@ -183,9 +183,15 @@ class RedactedGraphQueryLogFormatting(GraphQueryLogFormatting):
             GraphQueryLogEntryParameters: An instance containing the formatted and
             redacted log entry details.
         """
-        lines = query.split('\n')
+        lines = [l.strip() for l in query.split('\n')]
         redacted_query = '\n'.join(line for line in lines if line.startswith('//')) 
-        return GraphQueryLogEntryParameters(query_ref=query_ref, query=redacted_query or REDACTED, parameters=REDACTED, results=REDACTED)
+        parameters_str = REDACTED
+        if parameters and 'params' in parameters and isinstance(parameters['params'], list):
+            parameters_str = f" -- {len(parameters['params'])} parameter set(s) -- "
+        results_str = ' -- Empty -- '
+        if results and isinstance(results, list):
+            results_str = f' -- {len(results)} result(s) -- '
+        return GraphQueryLogEntryParameters(query_ref=query_ref, query=redacted_query or REDACTED, parameters=parameters_str, results=results_str)
 
 class NonRedactedGraphQueryLogFormatting(GraphQueryLogFormatting):
     def format_log_entry(self, query_ref:str, query:str, parameters:Dict[str,Any]={}, results:Optional[List[Any]]=None) -> GraphQueryLogEntryParameters:
@@ -364,6 +370,14 @@ class GraphStore(BaseModel):
     log_formatting:GraphQueryLogFormatting = Field(default_factory=lambda: RedactedGraphQueryLogFormatting())
     tenant_id:TenantId = Field(default_factory=lambda: TenantId())
 
+    def __enter__(self):
+        logger.debug(f'Entering {type(self).__name__}')
+        return self
+    
+    def __exit__(self, exception_type, exception_value, traceback):
+        logger.debug(f'Exiting {type(self).__name__}')
+        return False
+
     def execute_query_with_retry(self, query:str, parameters:Dict[str, Any], max_attempts=3, max_wait=5, **kwargs) -> Dict[str, Any]:
         """
         Executes a database query with a retry mechanism, allowing multiple attempts with delays between them.
@@ -394,18 +408,24 @@ class GraphStore(BaseModel):
 
         log_entry_parameters = self.log_formatting.format_log_entry(f'{correlation_id}/*', query, parameters)
 
-        attempt_number = 0
-        for attempt in Retrying(
-            stop=stop_after_attempt(max_attempts), 
-            wait=wait_random(min=0, max=max_wait),
-            before_sleep=on_retry_query(logger, logging.WARNING, log_entry_parameters), 
-            after=on_query_failed(logger, logging.WARNING, max_attempts, log_entry_parameters),
-            reraise=True
-        ):
-            with attempt:
-                attempt_number += 1
-                attempt.retry_state.attempt_number
-                return self._execute_query(query, parameters, **kwargs)
+        try:
+
+            attempt_number = 0
+            for attempt in Retrying(
+                stop=stop_after_attempt(max_attempts), 
+                wait=wait_random(min=0, max=max_wait),
+                before_sleep=on_retry_query(logger, logging.WARNING, log_entry_parameters), 
+                after=on_query_failed(logger, logging.WARNING, max_attempts, log_entry_parameters),
+                reraise=True
+            ):
+                with attempt:
+                    attempt_number += 1
+                    attempt.retry_state.attempt_number
+                    return self._execute_query(query, parameters, **kwargs)
+            
+        except Exception as e:
+            raise GraphQueryError(f'{str(e)} [query_ref: {log_entry_parameters.query_ref}, query: {log_entry_parameters.query}, parameters: {log_entry_parameters.parameters}]')
+    
 
     def _logging_prefix(self, query_id:str, correlation_id:Optional[str]=None):
         """
@@ -490,6 +510,9 @@ class GraphStore(BaseModel):
             A dictionary containing the results of the executed Cypher query.
         """
         raise NotImplementedError
+    
+    def init(self, graph_store=None):
+        pass
 
 
 

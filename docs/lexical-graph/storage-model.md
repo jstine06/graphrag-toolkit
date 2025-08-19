@@ -32,6 +32,7 @@ The lexical-graph supports the following graph databases:
 
   - [Amazon Neptune](./graph-store-neptune-db.md)
   - [Amazon Neptune Analytics](./graph-store-neptune-analytics.md)
+  - [Neo4j](./graph-store-neo4j.md)
   - [FalkorDB](./graph-store-falkor-db.md)
 
 ### Vector store

@@ -40,6 +40,7 @@ The lexical-graph also allows you to set the logging level and apply logging fil
 | `enable_cache` | Determines whether the results of LLM calls to models on Amazon Bedrock are cached to the local filesystem (see [Caching Amazon Bedrock LLM responses](#caching-amazon-bedrock-llm-responses)) | `False` | `ENABLE_CACHE` |
 | `aws_profile` | AWS CLI named profile used to authenticate requests to Bedrock and other services | *None* | `AWS_PROFILE` |
 | `aws_region` | AWS region used to scope Bedrock service calls | `us-east-1` | `AWS_REGION` |
+
 To set a configuration parameter in your application code:
 
 ```python

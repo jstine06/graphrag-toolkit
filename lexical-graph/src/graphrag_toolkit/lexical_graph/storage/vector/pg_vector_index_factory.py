@@ -1,4 +1,4 @@
-# Copyright FalkorDB.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
@@ -25,7 +25,7 @@ class PGVectorIndexFactory(VectorIndexFactoryMethod):
             index_names (List[str]): A list of index names to be used when creating vector indexes.
             vector_index_info (str): A string containing information about the vector index
             connection, such as a PostgreSQL connection string.
-            \*\*kwargs: Additional arguments that might be passed to the underlying index creation
+            **kwargs: Additional arguments that might be passed to the underlying index creation
             utility.
 
         Returns:

@@ -57,63 +57,81 @@ class ChunkGraphBuilder(GraphBuilder):
 
             logger.debug(f'Inserting chunk [chunk_id: {chunk_id}]')
 
-            statements = [
+            statements_c = [
                 '// insert chunks',
-                'UNWIND $params AS params'
-            ]
-
-            statements.extend([
+                'UNWIND $params AS params',
                 f'MERGE (chunk:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.chunk_id}})',
                 'ON CREATE SET chunk.value = params.text ON MATCH SET chunk.value = params.text'
-            ])
-            
+            ]
+
+            properties_c = {
+                'chunk_id': chunk_id,
+                'text': node.text
+            }
+
+            query_c = '\n'.join(statements_c)
+
+            graph_client.execute_query_with_retry(query_c, self._to_params(properties_c), max_attempts=5, max_wait=7)
+
             source_info = node.relationships.get(NodeRelationship.SOURCE, None)
 
             if source_info:
                 
                 source_id = source_info.node_id
 
-                statements.extend([
+                statements_s = [
+                    '// insert chunk-source relationships',
+                    'UNWIND $params AS params',
+                    f'MERGE (chunk:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.chunk_id}})',
                     f'MERGE (source:`__Source__`{{{graph_client.node_id("sourceId")}: params.source_id}})',
                     'MERGE (chunk)-[:`__EXTRACTED_FROM__`]->(source)'
-                ])
+                ]
 
-                properties = {
+                properties_s = {
                     'chunk_id': chunk_id,
-                    'source_id': source_id,
-                    'text': node.text
+                    'source_id': source_id
                 }
+
+                query_s = '\n'.join(statements_s)
+
+                graph_client.execute_query_with_retry(query_s, self._to_params(properties_s), max_attempts=5, max_wait=7)
+
             else:
                 logger.warning(f'source_id missing from chunk node [node_id: {chunk_id}]')
+
             
-            key_index = 0
-            
+            def insert_chunk_to_chunk_relationship(node_id:str, relationship_type:str):
+
+                statements_c2c = [
+                    f'// insert chunk-chunk {relationship_type.lower()} relationships',
+                    'UNWIND $params AS params',
+                    f'MERGE (chunk:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.chunk_id}})', 
+                    f'MERGE (target:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.target_id}})',
+                    f'MERGE (chunk)-[:`__{relationship_type.upper()}__`]->(target)'
+                ]
+
+                properties_c2c = {
+                    'chunk_id': chunk_id,
+                    'target_id': node_id
+                }
+
+                query_c2c = '\n'.join(statements_c2c)
+
+                graph_client.execute_query_with_retry(query_c2c, self._to_params(properties_c2c), max_attempts=5, max_wait=7)
+
+
             for node_relationship,relationship_info in node.relationships.items():
-                
-                key_index += 1
-                key = f'node_relationship_{key_index}'
+
                 node_id = relationship_info.node_id
 
                 if node_relationship == NodeRelationship.PARENT:
-                    statements.append(f'MERGE (parent:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.{key}}})')
-                    statements.append('MERGE (chunk)-[:`__PARENT__`]->(parent)')
-                    properties[key] = node_id
-                if node_relationship == NodeRelationship.CHILD:
-                    statements.append(f'MERGE (child:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.{key}}})')
-                    statements.append('MERGE (chunk)-[:`__CHILD__`]->(child)')
-                    properties[key] = node_id
+                    insert_chunk_to_chunk_relationship(node_id, 'parent')   
+                elif node_relationship == NodeRelationship.CHILD:
+                    insert_chunk_to_chunk_relationship(node_id, 'child')     
                 elif node_relationship == NodeRelationship.PREVIOUS:
-                    statements.append(f'MERGE (previous:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.{key}}})')
-                    statements.append('MERGE (chunk)-[:`__PREVIOUS__`]->(previous)')
-                    properties[key] = node_id
+                    insert_chunk_to_chunk_relationship(node_id, 'previous')    
                 elif node_relationship == NodeRelationship.NEXT:
-                    statements.append(f'MERGE (next:`__Chunk__`{{{graph_client.node_id("chunkId")}: params.{key}}})')
-                    statements.append('MERGE (chunk)-[:`__NEXT__`]->(next)')
-                    properties[key] = node_id
-                            
-            query = '\n'.join(statements)
-
-            graph_client.execute_query_with_retry(query, self._to_params(properties), max_attempts=5, max_wait=7)
+                    insert_chunk_to_chunk_relationship(node_id, 'next')
 
         else:
             logger.warning(f'chunk_id missing from chunk node [node_id: {node.node_id}]')

@@ -3,12 +3,12 @@
 
 import logging
 import time
-import tfidf_matcher as tm
 from typing import List, Dict
 from dateutil.parser import parse
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph import GraphRAGConfig
+from graphrag_toolkit.lexical_graph.utils.tfidf_utils import score_values
 from graphrag_toolkit.lexical_graph.retrieval.model import Source
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorBase, ProcessorArgs
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import SentenceReranker
@@ -53,7 +53,8 @@ class RerankStatements(ProcessorBase):
         super().__init__(args, filter_config)
         self.reranking_source_metadata_fn = self.args.reranking_source_metadata_fn or default_reranking_source_metadata_fn
 
-    def _score_values_with_tfidf(self, values:List[str], query:QueryBundle, entities:List[ScoredEntity]):
+
+    def _score_values_with_tfidf(self, values:List[str], query:QueryBundle, entity_contexts:List[List[ScoredEntity]]):
         """
         Compute a ranking of provided text values using the TF-IDF (Term Frequency-Inverse Document Frequency) algorithm.
         The method reranks the input values based on their relevance to the provided query and any additional entities.
@@ -64,7 +65,7 @@ class RerankStatements(ProcessorBase):
         Args:
             values (List[str]): The list of text values to be scored based on their relevance to the query and entities.
             query (QueryBundle): The query object containing the query string to match against the text values.
-            entities (List[ScoredEntity]): A collection of entities that provide additional context for scoring the text values.
+            entity_contexts:List[List[ScoredEntity]]: A list of scored entities used to refine the query for reranking.
 
         Returns:
             dict: A dictionary where keys are the text values and values are their associated relevance scores, sorted
@@ -73,52 +74,33 @@ class RerankStatements(ProcessorBase):
         logger.debug('Reranking with tfidf')
 
         splitter = TokenTextSplitter(chunk_size=25, chunk_overlap=5)
-        match_values = splitter.split_text(query.query_str)
 
-        extras = set([
-            entity.entity.value
-            for entity in entities
-        ])
+        match_values = splitter.split_text(query.query_str.lower())
+        
+        extras = [
+            ', '.join([entity.entity.value.lower() for entity in entity_context])
+            for entity_context in entity_contexts
+        ]
 
-        if extras:
-            match_values.append(', '.join(extras))
+        match_values = [m for m in match_values if m not in extras] # order in entity context takes precedence
+        num_primary_match_values = len(match_values) if not extras else len(match_values) + max(int(len(extras)/2), 1) # first entity contexts are important as match values
 
-        logger.debug(f'Match values: {match_values}')
+        match_values.extend(extras)
+       
+        logger.debug(f'match_values: {match_values}')
+        logger.debug(f'num_primary_match_values: {num_primary_match_values}')
+
+        scored_values = score_values(
+            values, 
+            match_values, 
+            self.args.max_statements, 
+            num_primary_match_values=num_primary_match_values
+        )
+
+        return scored_values
  
-        values_to_score = values.copy()
-        
-        limit =  len(values_to_score)
-        if self.args.max_statements:
-            limit = min(self.args.max_statements, limit)
 
-        while len(values_to_score) <= limit:
-            values_to_score.append('')
-
-        scored_values = {}
-
-        try:
-            
-            matcher_results = tm.matcher(match_values, values_to_score, limit, 3)
-
-            max_i = len(matcher_results.columns)
-        
-            for row_index in range(0, len(match_values)):
-                for col_index in range(1, max_i, 3) :
-                    value = matcher_results.iloc[row_index, col_index]
-                    score = matcher_results.iloc[row_index, col_index+1]
-                    if value not in scored_values:
-                        scored_values[value] = score
-                    else:
-                        scored_values[value] = max(scored_values[value], score)
-        except ValueError:
-            scored_values = {v: 0.0 for v in values_to_score if v}
-        
-                
-        sorted_scored_values = dict(sorted(scored_values.items(), key=lambda item: item[1], reverse=True))
-        
-        return sorted_scored_values
-
-    def _score_values(self, values:List[str], query:QueryBundle, entities:List[ScoredEntity]) -> Dict[str, float]:
+    def _score_values(self, values:List[str], query:QueryBundle, entity_contexts:List[List[ScoredEntity]]) -> Dict[str, float]:
         """
         Reranks a list of values based on their relevance to a specified query and associated entities using a
         SentenceReranker model. The method processes the input values, constructs a query bundle considering the
@@ -127,7 +109,7 @@ class RerankStatements(ProcessorBase):
         Args:
             values (List[str]): A list of strings to be scored and reranked based on relevance.
             query (QueryBundle): The query bundle containing the query string and any metadata for ranking.
-            entities (List[ScoredEntity]): A list of scored entities used to refine the query for reranking.
+            entity_contexts:List[List[ScoredEntity]]: A list of scored entities used to refine the query for reranking.
 
         Returns:
             Dict[str, float]: A dictionary where keys are the original input values and values are their corresponding
@@ -137,10 +119,15 @@ class RerankStatements(ProcessorBase):
 
         reranker = SentenceReranker(model=self.reranking_model, top_n=self.args.max_statements or len(values))
 
+        extras = ', '.join([
+            ', '.join([entity.entity.value.lower() for entity in entity_context])
+            for entity_context in entity_contexts
+        ])
+
         rank_query = (
             query 
-            if not entities 
-            else QueryBundle(query_str=f'{query.query_str} (keywords: {", ".join(set([entity.entity.value for entity in entities]))})')
+            if not extras 
+            else QueryBundle(query_str=f'{query.query_str} (keywords: {extras})')
         )
 
         reranked_values = reranker.postprocess_nodes(
@@ -194,9 +181,9 @@ class RerankStatements(ProcessorBase):
 
         scored_values = None
         if self.args.reranker.lower() == 'model':
-            scored_values = self._score_values(values_to_score, query, search_results.entities)
+            scored_values = self._score_values(values_to_score, query, search_results.entity_contexts)
         else:
-            scored_values = self._score_values_with_tfidf(values_to_score, query, search_results.entities)
+            scored_values = self._score_values_with_tfidf(values_to_score, query, search_results.entity_contexts)
 
         end = time.time()
 

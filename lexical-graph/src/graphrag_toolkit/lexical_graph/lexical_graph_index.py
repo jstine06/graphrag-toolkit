@@ -304,7 +304,9 @@ class LexicalGraphIndex():
             extraction_dir: Optional[str] = None,
             indexing_config: Optional[IndexingConfigType] = None,
     ):
-
+        from llama_index.core.utils import globals_helper
+        globals_helper.stopwords
+        
         tenant_id = to_tenant_id(tenant_id)
 
         self.graph_store = MultiTenantGraphStore.wrap(GraphStoreFactory.for_graph_store(graph_store), tenant_id)
@@ -545,7 +547,7 @@ class LexicalGraphIndex():
             **kwargs
         )
 
-        sink_fn = sink if not handler else Pipe(handler.accept)
+        sink_fn = sink if not handler else Pipe(handler)
         nodes | build_pipeline | sink_fn
 
     def extract_and_build(
@@ -599,5 +601,5 @@ class LexicalGraphIndex():
             **kwargs
         )
 
-        sink_fn = sink if not handler else Pipe(handler.accept)
+        sink_fn = sink if not handler else Pipe(handler)
         nodes | extraction_pipeline | build_pipeline | sink_fn

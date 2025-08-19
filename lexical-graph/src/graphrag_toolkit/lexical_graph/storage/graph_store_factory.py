@@ -7,13 +7,14 @@ from typing import Union, Type, Dict
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore, GraphStoreFactoryMethod
 from graphrag_toolkit.lexical_graph.storage.graph.dummy_graph_store import DummyGraphStoreFactory
 from graphrag_toolkit.lexical_graph.storage.graph.neptune_graph_stores import NeptuneAnalyticsGraphStoreFactory, NeptuneDatabaseGraphStoreFactory
+from graphrag_toolkit.lexical_graph.storage.graph.neo4j_graph_store_factory import Neo4jGraphStoreFactory
 
 logger = logging.getLogger(__name__)
 
 GraphStoreType = Union[str, GraphStore]
 GraphStoreFactoryMethodType = Union[GraphStoreFactoryMethod, Type[GraphStoreFactoryMethod]]
 
-_graph_store_factories:Dict[str, GraphStoreFactoryMethod] = { c.__name__ : c() for c in [NeptuneAnalyticsGraphStoreFactory, NeptuneDatabaseGraphStoreFactory, DummyGraphStoreFactory] }
+_graph_store_factories:Dict[str, GraphStoreFactoryMethod] = { c.__name__ : c() for c in [NeptuneAnalyticsGraphStoreFactory, NeptuneDatabaseGraphStoreFactory, Neo4jGraphStoreFactory, DummyGraphStoreFactory] }
 
 
 class GraphStoreFactory():

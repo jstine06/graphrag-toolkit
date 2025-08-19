@@ -14,7 +14,6 @@ from graphrag_toolkit.lexical_graph.retrieval.retrievers.traversal_based_base_re
 from graphrag_toolkit.lexical_graph.retrieval.utils.vector_utils import get_diverse_vss_elements
 
 from llama_index.core.schema import QueryBundle
-from llama_index.core.vector_stores.types import MetadataFilters
 
 logger = logging.getLogger(__name__)
 
@@ -95,21 +94,25 @@ class TopicBasedSearch(TraversalBasedBaseRetriever):
         Raises:
             Any error or exception raised by the `self.graph_store.execute_query` method.
         """
-        cypher = self.create_cypher_query(f'''
-        // topic-based graph search                                  
-        MATCH (f:`__Fact__`)-[:`__NEXT__`*0..1]-(:`__Fact__`)-[:`__SUPPORTS__`]->(:`__Statement__`)-[:`__BELONGS_TO__`]->(tt:`__Topic__`)
+
+        cypher = f'''// topic-based graph search                                  
+        MATCH (f)-[:`__SUPPORTS__`]->()-[:`__BELONGS_TO__`]->(tt:`__Topic__`)
         WHERE {self.graph_store.node_id("tt.topicId")} = $topicId
         WITH f LIMIT $statementLimit
-        MATCH (f)-[:`__SUPPORTS__`]->(:`__Statement__`)-[:`__PREVIOUS__`*0..2]-(l:`__Statement__`)-[:`__BELONGS_TO__`]->(t:`__Topic__`)
-        ''')
-                                  
+        MATCH (f)-[:`__NEXT__`*0..1]-()-[:`__SUPPORTS__`]->(l)
+        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
+        '''
+                            
         properties = {
             'topicId': topic_id,
-            'limit': self.args.query_limit,
             'statementLimit': self.args.intermediate_limit
         }
-                                          
-        return self.graph_store.execute_query(cypher, properties)
+
+        results = self.graph_store.execute_query(cypher, properties)
+        statement_ids = [r['l'] for r in results]
+
+        return self.get_statements_by_topic_and_source(statement_ids)
+        
 
     def get_start_node_ids(self, query_bundle: QueryBundle) -> List[str]:
         """
@@ -129,7 +132,14 @@ class TopicBasedSearch(TraversalBasedBaseRetriever):
         """
         logger.debug('Getting start node ids for topic-based search...')
 
-        topics = get_diverse_vss_elements('topic', query_bundle, self.vector_store, self.args, self.filter_config)
+        topics = get_diverse_vss_elements(
+            'topic', 
+            query_bundle, 
+            self.vector_store, 
+            self.args.vss_diversity_factor, 
+            self.args.vss_top_k, 
+            self.filter_config
+        )
         
         return [topic['topic']['topicId'] for topic in topics]
     
@@ -150,6 +160,7 @@ class TopicBasedSearch(TraversalBasedBaseRetriever):
             A SearchResultCollection object containing accumulated search results from
             the topic-based graph search.
         """
+            
         topic_ids = start_node_ids
 
         logger.debug('Running topic-based search...')

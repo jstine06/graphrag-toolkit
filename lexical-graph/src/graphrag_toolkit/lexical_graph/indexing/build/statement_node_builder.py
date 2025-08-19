@@ -138,8 +138,8 @@ class StatementNodeBuilder(NodeBuilder):
                             id_ = statement_id,
                             text = f'{statement.value}\n\n{statement_details}' if statement_details else statement.value,
                             metadata = statement_metadata,
-                            excluded_embed_metadata_keys = [INDEX_KEY, 'statement'],
-                            excluded_llm_metadata_keys = [INDEX_KEY, 'statement']
+                            excluded_embed_metadata_keys = [INDEX_KEY, 'statement', 'source'],
+                            excluded_llm_metadata_keys = [INDEX_KEY, 'statement', 'source']
                         )
 
                         if prev_statement:
@@ -197,8 +197,8 @@ class StatementNodeBuilder(NodeBuilder):
                             fact_node = TextNode( # don't specify id here - each fact node should be indexable because facts can be associated with multiple statements
                                 text = fact_value,
                                 metadata = fact_metadata,
-                                excluded_embed_metadata_keys = [INDEX_KEY, 'fact'],
-                                excluded_llm_metadata_keys = [INDEX_KEY, 'fact']
+                                excluded_embed_metadata_keys = [INDEX_KEY, 'fact', 'source'],
+                                excluded_llm_metadata_keys = [INDEX_KEY, 'fact', 'source']
                             )
 
                             fact_nodes[lookup_id] = fact_node

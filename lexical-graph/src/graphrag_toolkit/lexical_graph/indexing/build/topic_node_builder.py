@@ -171,8 +171,10 @@ class TopicNodeBuilder(NodeBuilder):
                         id_ = topic_id,
                         text = topic.value,
                         metadata = metadata,
-                        excluded_embed_metadata_keys = [INDEX_KEY, 'topic'],
-                        excluded_llm_metadata_keys = [INDEX_KEY, 'topic']
+                        excluded_embed_metadata_keys = [INDEX_KEY, 'topic', 'source'],
+                        excluded_llm_metadata_keys = [INDEX_KEY, 'topic', 'source'],
+                        text_template='{content}\n\n{metadata_str}',
+                        metadata_template='{value}'
                     )
 
                     topic_nodes[topic_id] = topic_node
@@ -183,5 +185,8 @@ class TopicNodeBuilder(NodeBuilder):
                 topic_node = self._add_statements(topic_node, topic.statements)
             
                 topic_nodes[topic_id] = topic_node
+
+        for topic_node in topic_nodes.values():
+            topic_node.metadata['statements'] = ' '.join(topic_node.metadata['statements'])
 
         return list(topic_nodes.values())

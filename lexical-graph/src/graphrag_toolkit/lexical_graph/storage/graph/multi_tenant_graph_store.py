@@ -159,3 +159,6 @@ class MultiTenantGraphStore(GraphStore):
             cypher = cypher.replace(original_label, new_label)
         return cypher
     
+    def init(self, graph_store=None):
+        self.inner.init(graph_store or self)
+    

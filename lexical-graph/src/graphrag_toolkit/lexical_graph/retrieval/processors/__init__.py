@@ -5,6 +5,7 @@ from .processor_args import ProcessorArgs
 from .processor_base import ProcessorBase
 from .clear_chunks import ClearChunks
 from .clear_scores import ClearScores
+from .clear_topic_ids import ClearTopicIds
 from .dedup_results import DedupResults
 from .disaggregate_results import DisaggregateResults
 from .filter_by_metadata import FilterByMetadata

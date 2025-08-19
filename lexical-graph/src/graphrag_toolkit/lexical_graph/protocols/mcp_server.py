@@ -62,7 +62,8 @@ def query_tenant_graph(graph_store:GraphStore, vector_store:VectorStore, tenant_
         query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
             graph_store, 
             vector_store,
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
+            enable_multipart_queries=True
         )
 
         start = time.time()

@@ -163,11 +163,12 @@ class KeywordRankingSearch(SemanticGuidedBaseRetriever):
 
         # 2. Find statements matching any keyword
         cypher = f"""
+        // find statements by keywords
         UNWIND $keywords AS keyword
         MATCH (e:`__Entity__`)
-        WHERE toLower(e.value) = toLower(keyword)
+        WHERE e.search_str = keyword
         WITH e, keyword
-        MATCH (e)-[:`__SUBJECT__`|`__OBJECT__`]->(:`__Fact__`)-[:`__SUPPORTS__`]->(statement:`__Statement__`)
+        MATCH (e)-[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->(statement)
         WITH statement, COLLECT(DISTINCT keyword) as matched_keywords
         RETURN {{
             statement: {{
@@ -176,8 +177,10 @@ class KeywordRankingSearch(SemanticGuidedBaseRetriever):
             matched_keywords: matched_keywords
         }} AS result
         """
+
+        lcase_keywords = [l.lower() for l in list(keywords)]
         
-        results = self.graph_store.execute_query(cypher, {'keywords': list(keywords)})
+        results = self.graph_store.execute_query(cypher, {'keywords': lcase_keywords})
         if not results:
             logger.debug("No statements found matching keywords")
             return []

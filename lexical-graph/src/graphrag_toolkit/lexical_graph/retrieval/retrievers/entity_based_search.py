@@ -6,10 +6,9 @@ import concurrent.futures
 from typing import List, Generator, Tuple, Any, Optional, Type
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig
-from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, ScoredEntity, Entity
+from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.vector.vector_store import VectorStore
-from graphrag_toolkit.lexical_graph.retrieval.retrievers.keyword_entity_search import KeywordEntitySearch
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorBase, ProcessorArgs
 from graphrag_toolkit.lexical_graph.retrieval.retrievers.traversal_based_base_retriever import TraversalBasedBaseRetriever
 
@@ -86,28 +85,11 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
         Returns:
             List[str]: A list of entity IDs as strings.
         """
-        logger.debug('Getting start node ids for entity-based search...')
+    
+        if not self.entity_contexts:
+            logger.warning(f'No entity ids available for entity based search')
 
-        if self.entities:
-            return [entity.entity.entityId for entity in self.entities]
-        
-        keyword_entity_search = KeywordEntitySearch(
-            graph_store=self.graph_store, 
-            max_keywords=self.args.max_keywords,
-            expand_entities=self.args.expand_entities
-        )
-
-        entity_search_results = keyword_entity_search.retrieve(query_bundle)
-
-        entities = [
-            ScoredEntity(
-                entity=Entity.model_validate_json(entity_search_result.text), 
-                score=entity_search_result.score
-            )
-            for entity_search_result in entity_search_results
-        ]
-
-        return [entity.entity.entityId for entity in entities]
+        return [entity_context[0].entity.entityId for entity_context in self.entity_contexts] 
     
     def _for_each_disjoint(self, values:List[Any], others:Optional[List[Any]]=None) -> Generator[Tuple[Any, List[Any]], None, None]:
         """
@@ -158,28 +140,28 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
             Any exceptions raised during graph query creation or execution.
         """
         logger.debug(f'Starting multiple-entity-based searches for [start_id: {start_id}, end_ids: {end_ids}]')
-        
-        cypher = self.create_cypher_query(f''' 
-        // multiple entity-based graph search                                                                
+
+        cypher = f'''// multiple entity-based graph search                                                                
         MATCH p=(e1:`__Entity__`{{{self.graph_store.node_id("entityId")}:$startId}})-[:`__RELATION__`*1..2]-(e2:`__Entity__`) 
         WHERE {self.graph_store.node_id("e2.entityId")} in $endIds
         UNWIND nodes(p) AS n
         WITH DISTINCT COLLECT(n) AS entities
-        MATCH (s:`__Entity__`)-[:`__SUBJECT__`]->(f:`__Fact__`)<-[:`__OBJECT__`]-(o:`__Entity__`),
-            (f)-[:`__SUPPORTS__`]->(:`__Statement__`)
-            -[:`__PREVIOUS__`*0..1]-(l:`__Statement__`)
-            -[:`__BELONGS_TO__`]->(t:`__Topic__`)
+        MATCH (s)-[:`__SUBJECT__`]->(f)<-[:`__OBJECT__`]-(o),
+              (f)-[:`__SUPPORTS__`]->()-[:`__PREVIOUS__`*0..1]-(l)
         WHERE s in entities and o in entities
-        ''')
-            
+        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit
+        '''
+
         properties = {
             'startId': start_id,
             'endIds': end_ids,
-            'statementLimit': self.args.intermediate_limit,
-            'limit': self.args.query_limit
+            'statementLimit': self.args.intermediate_limit
         }
-            
-        return self.graph_store.execute_query(cypher, properties)
+
+        results = self.graph_store.execute_query(cypher, properties)
+        statement_ids = [r['l'] for r in results]
+
+        return self.get_statements_by_topic_and_source(statement_ids)
            
 
     def _single_entity_based_graph_search(self, entity_id, query:QueryBundle):
@@ -200,22 +182,22 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
         """
         logger.debug(f'Starting single-entity-based search for [entity_id: {entity_id}]')
             
-        cypher = self.create_cypher_query(f''' 
-        // single entity-based graph search                            
+        cypher = f'''// single entity-based graph search                            
         MATCH (:`__Entity__`{{{self.graph_store.node_id("entityId")}:$startId}})
-            -[:`__SUBJECT__`]->(f:`__Fact__`)
-            -[:`__SUPPORTS__`]->(:`__Statement__`)
-            -[:`__PREVIOUS__`*0..1]-(l:`__Statement__`)
-            -[:`__BELONGS_TO__`]->(t:`__Topic__`)''')
+            -[:`__SUBJECT__`]->()
+            -[:`__SUPPORTS__`]->()
+            -[:`__PREVIOUS__`*0..1]-(l)
+        RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit'''
             
         properties = {
             'startId': entity_id,
-            'statementLimit': self.args.intermediate_limit,
-            'limit': self.args.query_limit
+            'statementLimit': self.args.intermediate_limit
         }
-            
-        return self.graph_store.execute_query(cypher, properties)
-            
+
+        results = self.graph_store.execute_query(cypher, properties)
+        statement_ids = [r['l'] for r in results]
+
+        return self.get_statements_by_topic_and_source(statement_ids)
     
     def do_graph_search(self, query_bundle:QueryBundle, start_node_ids:List[str]) -> SearchResultCollection:
         """

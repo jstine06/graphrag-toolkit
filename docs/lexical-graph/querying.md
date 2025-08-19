@@ -43,21 +43,22 @@ from graphrag_toolkit.lexical_graph import LexicalGraphQueryEngine
 from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory
 from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
 
-graph_store = GraphStoreFactory.for_graph_store(
-    'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
-)
+with (
+    GraphStoreFactory.for_graph_store(
+        'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
+    ) as graph_store,
+    VectorStoreFactory.for_vector_store(
+        'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
+    ) as vector_store
+):
 
-vector_store = VectorStoreFactory.for_vector_store(
-    'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
-)
+    query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
+        graph_store, 
+        vector_store,
+        streaming=True
+    )
 
-query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
-    graph_store, 
-    vector_store,
-    streaming=True
-)
-
-response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
+    response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
 
 print(response.print_response_stream())
 ```
@@ -174,21 +175,22 @@ from graphrag_toolkit.lexical_graph import LexicalGraphQueryEngine
 from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory
 from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
 
-graph_store = GraphStoreFactory.for_graph_store(
-    'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
-)
+with (
+    GraphStoreFactory.for_graph_store(
+        'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
+    ) as graph_store,
+    VectorStoreFactory.for_vector_store(
+        'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
+    ) as vector_store
+):
 
-vector_store = VectorStoreFactory.for_vector_store(
-    'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
-)
+    query_engine = LexicalGraphQueryEngine.for_semantic_guided_search(
+        graph_store, 
+        vector_store,
+        streaming=True
+    )
 
-query_engine = LexicalGraphQueryEngine.for_semantic_guided_search(
-    graph_store, 
-    vector_store,
-    streaming=True
-)
-
-response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
+    response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
 
 print(response.print_response_stream())
 ```
@@ -270,50 +272,51 @@ from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
 from graphrag_toolkit.lexical_graph.retrieval.retrievers import RerankingBeamGraphSearch, StatementCosineSimilaritySearch, KeywordRankingSearch
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import SentenceReranker
 
-graph_store = GraphStoreFactory.for_graph_store(
-    'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
-)
+with (
+    GraphStoreFactory.for_graph_store(
+        'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
+    ) as graph_store,
+    VectorStoreFactory.for_vector_store(
+        'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
+    ) as vector_store
+):
 
-vector_store = VectorStoreFactory.for_vector_store(
-    'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
-)
+    cosine_retriever = StatementCosineSimilaritySearch(
+        vector_store=vector_store,
+        graph_store=graph_store,
+        top_k=50
+    )
 
-cosine_retriever = StatementCosineSimilaritySearch(
-    vector_store=vector_store,
-    graph_store=graph_store,
-    top_k=50
-)
+    keyword_retriever = KeywordRankingSearch(
+        vector_store=vector_store,
+        graph_store=graph_store,
+        max_keywords=10
+    )
 
-keyword_retriever = KeywordRankingSearch(
-    vector_store=vector_store,
-    graph_store=graph_store,
-    max_keywords=10
-)
+    reranker = SentenceReranker(
+        batch_size=128
+    )
 
-reranker = SentenceReranker(
-    batch_size=128
-)
+    beam_retriever = RerankingBeamGraphSearch(
+        vector_store=vector_store,
+        graph_store=graph_store,
+        reranker=reranker,
+        initial_retrievers=[cosine_retriever, keyword_retriever],
+        max_depth=8,
+        beam_width=100
+    )
 
-beam_retriever = RerankingBeamGraphSearch(
-    vector_store=vector_store,
-    graph_store=graph_store,
-    reranker=reranker,
-    initial_retrievers=[cosine_retriever, keyword_retriever],
-    max_depth=8,
-    beam_width=100
-)
+    query_engine = LexicalGraphQueryEngine.for_semantic_guided_search(
+        graph_store, 
+        vector_store,
+        retrievers=[
+            cosine_retriever,
+            keyword_retriever,
+            beam_retriever
+        ]
+    )
 
-query_engine = LexicalGraphQueryEngine.for_semantic_guided_search(
-    graph_store, 
-    vector_store,
-    retrievers=[
-        cosine_retriever,
-        keyword_retriever,
-        beam_retriever
-    ]
-)
-
-response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
+    response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
 
 print(response.response)
 ```
@@ -329,51 +332,52 @@ from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
 from graphrag_toolkit.lexical_graph.retrieval.retrievers import RerankingBeamGraphSearch, StatementCosineSimilaritySearch, KeywordRankingSearch
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import BGEReranker
 
-graph_store = GraphStoreFactory.for_graph_store(
-    'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
-)
+with (
+    GraphStoreFactory.for_graph_store(
+        'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
+    ) as graph_store,
+    VectorStoreFactory.for_vector_store(
+        'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
+    ) as vector_store
+):
 
-vector_store = VectorStoreFactory.for_vector_store(
-    'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
-)
+    cosine_retriever = StatementCosineSimilaritySearch(
+        vector_store=vector_store,
+        graph_store=graph_store,
+        top_k=50
+    )
 
-cosine_retriever = StatementCosineSimilaritySearch(
-    vector_store=vector_store,
-    graph_store=graph_store,
-    top_k=50
-)
+    keyword_retriever = KeywordRankingSearch(
+        vector_store=vector_store,
+        graph_store=graph_store,
+        max_keywords=10
+    )
 
-keyword_retriever = KeywordRankingSearch(
-    vector_store=vector_store,
-    graph_store=graph_store,
-    max_keywords=10
-)
+    reranker = BGEReranker(
+        gpu_id=0, # Remove if running on CPU device,
+        batch_size=128
+    )
 
-reranker = BGEReranker(
-    gpu_id=0, # Remove if running on CPU device,
-    batch_size=128
-)
+    beam_retriever = RerankingBeamGraphSearch(
+        vector_store=vector_store,
+        graph_store=graph_store,
+        reranker=reranker,
+        initial_retrievers=[cosine_retriever, keyword_retriever],
+        max_depth=8,
+        beam_width=100
+    )
 
-beam_retriever = RerankingBeamGraphSearch(
-    vector_store=vector_store,
-    graph_store=graph_store,
-    reranker=reranker,
-    initial_retrievers=[cosine_retriever, keyword_retriever],
-    max_depth=8,
-    beam_width=100
-)
+    query_engine = LexicalGraphQueryEngine.for_semantic_guided_search(
+        graph_store, 
+        vector_store,
+        retrievers=[
+            cosine_retriever,
+            keyword_retriever,
+            beam_retriever
+        ]
+    )
 
-query_engine = LexicalGraphQueryEngine.for_semantic_guided_search(
-    graph_store, 
-    vector_store,
-    retrievers=[
-        cosine_retriever,
-        keyword_retriever,
-        beam_retriever
-    ]
-)
-
-response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
+    response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
 
 print(response.response)
 ```
@@ -399,25 +403,26 @@ from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import SentenceReranker, SentenceReranker, StatementDiversityPostProcessor, StatementEnhancementPostProcessor
 import os
 
-graph_store = GraphStoreFactory.for_graph_store(
-    'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
-)
+with (
+    GraphStoreFactory.for_graph_store(
+        'neptune-db://my-graph.cluster-abcdefghijkl.us-east-1.neptune.amazonaws.com'
+    ) as graph_store,
+    VectorStoreFactory.for_vector_store(
+        'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
+    ) as vector_store
+):
 
-vector_store = VectorStoreFactory.for_vector_store(
-    'aoss://https://abcdefghijkl.us-east-1.aoss.amazonaws.com'
-)
+    query_engine = LexicalGraphQueryEngine.for_semantic_guided_search(
+        graph_store, 
+        vector_store,
+        post_processors=[
+            SentenceReranker(), 
+            StatementDiversityPostProcessor(), 
+            StatementEnhancementPostProcessor()
+        ]
+    )
 
-query_engine = LexicalGraphQueryEngine.for_semantic_guided_search(
-    graph_store, 
-    vector_store,
-    post_processors=[
-        SentenceReranker(), 
-        StatementDiversityPostProcessor(), 
-        StatementEnhancementPostProcessor()
-    ]
-)
-
-response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
+    response = query_engine.query("What are the differences between Neptune Database and Neptune Analytics?")
 
 print(response.response)
 ```

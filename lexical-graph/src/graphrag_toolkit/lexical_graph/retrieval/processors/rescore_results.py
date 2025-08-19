@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import statistics
-from typing import List, Dict
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorBase, ProcessorArgs
@@ -73,11 +72,11 @@ class RescoreResults(ProcessorBase):
                 query (QueryBundle): The query associated with the search operation.
             """
             topic_scores = [
-                max([s.score for s in topic.statements])
+                statistics.mean([s.score for s in topic.statements])
                 for topic in search_result.topics
             ]
             
-            search_result.score = statistics.mean(topic_scores)
+            search_result.score = max(topic_scores)
             
             return search_result
         

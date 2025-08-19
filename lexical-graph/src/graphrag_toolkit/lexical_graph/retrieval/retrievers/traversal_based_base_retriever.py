@@ -5,10 +5,13 @@ import logging
 import abc
 import time
 from typing import List, Any, Type, Optional
+from importlib.metadata import version, PackageNotFoundError
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.vector.vector_store import VectorStore
+from graphrag_toolkit.lexical_graph.retrieval.query_context import KeywordProvider, KeywordVSSProvider, KeywordNLPProvider, KeywordProviderMode, PassThruKeywordProvider
+from graphrag_toolkit.lexical_graph.retrieval.query_context import EntityProvider, EntityVSSProvider, EntityContextProvider
 from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, SearchResult, ScoredEntity
 from graphrag_toolkit.lexical_graph.retrieval.processors import *
 
@@ -24,6 +27,7 @@ DEFAULT_PROCESSORS = [
     FilterByMetadata,               
     PopulateStatementStrs,
     RerankStatements,
+    PruneStatements,
     RescoreResults,
     SortResults,
     TruncateResults,
@@ -35,7 +39,8 @@ DEFAULT_PROCESSORS = [
 DEFAULT_FORMATTING_PROCESSORS = [
     StatementsToStrings,
     SimplifySingleTopicResults,
-    FormatSources
+    FormatSources,
+    ClearTopicIds
 ]
 
 class TraversalBasedBaseRetriever(BaseRetriever):
@@ -74,7 +79,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
                  processor_args:Optional[ProcessorArgs]=None,
                  processors:Optional[List[Type[ProcessorBase]]]=None,
                  formatting_processors:Optional[List[Type[ProcessorBase]]]=None,
-                 entities:Optional[List[ScoredEntity]]=None,
+                 entity_contexts:Optional[List[List[ScoredEntity]]]=None,
                  filter_config:FilterConfig=None,
                  **kwargs):
         """
@@ -115,48 +120,117 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         self.vector_store = vector_store
         self.processors = processors if processors is not None else DEFAULT_PROCESSORS
         self.formatting_processors = formatting_processors if formatting_processors is not None else DEFAULT_FORMATTING_PROCESSORS
-        self.entities = entities or []
+        self.entity_contexts:List[List[ScoredEntity]] = entity_contexts or []
         self.filter_config = filter_config or FilterConfig()
         
-    def create_cypher_query(self, match_clause):
-        """
-        Constructs a Cypher query string based on the provided match clause, tailoring it to retrieve data from a graph database.
+    def get_statements_by_topic_and_source(self, statement_ids):
 
-        This function generates a Cypher query dynamically to process relationships and nodes in the graph database.
-        It extracts information on sources, topics, statements, and chunks, organizing them into a structured result.
-        The query also includes mechanisms to calculate a score for result ordering.
+        statements_params = {
+            'statementLimit': self.args.intermediate_limit,
+            'limit': self.args.query_limit,
+            'statementIds': statement_ids
+        }
 
-        Args:
-            match_clause: A string containing the match clause to append to the query. Used to identify which nodes and relationships to start the query from.
-
-        Returns:
-            str: The complete Cypher query string generated with the input match clause and predefined query logic.
-        """
-        return_clause = f'''
-        WITH DISTINCT l, t LIMIT $statementLimit
-        MATCH (l:`__Statement__`)-[:`__MENTIONED_IN__`]->(c:`__Chunk__`)-[:`__EXTRACTED_FROM__`]->(s:`__Source__`)
-        OPTIONAL MATCH (f:`__Fact__`)-[:`__SUPPORTS__`]->(l:`__Statement__`)
+        statements_cypher = f'''
+        // get statements grouped by topic and source
+        MATCH (t)<-[:`__BELONGS_TO__`]-(l:`__Statement__`)   
+              -[:`__MENTIONED_IN__`]->(c)
+              -[:`__EXTRACTED_FROM__`]->(s)
+        WHERE {self.graph_store.node_id("l.statementId")} in $statementIds
         WITH {{ sourceId: {self.graph_store.node_id("s.sourceId")}, metadata: s{{.*}}}} AS source,
             t, l, c,
             {{ chunkId: {self.graph_store.node_id("c.chunkId")}, value: NULL }} AS cc, 
-            {{ statementId: {self.graph_store.node_id("l.statementId")}, statement: l.value, facts: collect(distinct f.value), details: l.details, chunkId: {self.graph_store.node_id("c.chunkId")}, score: count(l) }} as ll
+            {{ statementId: {self.graph_store.node_id("l.statementId")}, statement: l.value, facts: [], details: l.details, chunkId: {self.graph_store.node_id("c.chunkId")}, score: 0 }} as ll
         WITH source, 
             t, 
             collect(distinct cc) as chunks, 
-            collect(distinct ll) as statements
+            collect(ll) as statements
         WITH source,
             {{ 
                 topic: t.value, 
+                topicId: {self.graph_store.node_id("t.topicId")},
                 chunks: chunks,
                 statements: statements
             }} as topic
+        WITH sum(size(topic.statements)/size(topic.chunks)) AS score, source, collect(topic) AS topics
         RETURN {{
-            score: sum(size(topic.statements)/size(topic.chunks)), 
+            score: score, 
             source: source,
-            topics: collect(distinct topic)
+            topics: topics
         }} as result ORDER BY result.score DESC LIMIT $limit'''
+        
+        statements_results =  self.graph_store.execute_query(statements_cypher, statements_params)
+    
+        statement_facts_cypher = f'''// get facts for statements
+        MATCH (f)-[:`__SUPPORTS__`]->(l:`__Statement__`)
+        WHERE {self.graph_store.node_id("l.statementId")} in $statementIds
+        RETURN {self.graph_store.node_id("l.statementId")} AS statementId, collect(distinct f.value) AS facts'''
 
-        return f'{match_clause}{return_clause}'
+        statement_facts_params = {
+            'statementIds': statement_ids
+        }
+
+        statement_facts_results = self.graph_store.execute_query(statement_facts_cypher, statement_facts_params)
+
+        statement_facts = {
+            r['statementId']:r['facts'] for r in statement_facts_results
+        }
+
+        for statements_result in statements_results:
+            result = statements_result['result']
+            for topic in result['topics']:
+                for statement in topic['statements']:
+                    facts = statement_facts.get(statement['statementId'], [])
+                    if facts:
+                        statement['facts'] = facts
+                        statement['score'] = len(facts)
+
+        return statements_results
+    
+    def _init_entity_contexts(self, query_bundle: QueryBundle) -> List[str]:
+
+        if not self.entity_contexts:
+
+            start = time.time()
+
+            self.entity_contexts = []
+
+            if self.args.ec_max_contexts < 1:
+                logger.debug(f'Ignoring retrieval of entity contexts because ec_max_contexts is {self.args.ec_max_contexts}')
+                return
+
+            if self.args.ec_keyword_provider == 'vss':
+                keyword_provider = KeywordVSSProvider(self.graph_store, self.vector_store, self.args, self.filter_config)
+            elif self.args.ec_keyword_provider == 'llm':
+                keyword_provider = KeywordProvider(self.args, mode=KeywordProviderMode.SIMPLE)
+            elif self.args.ec_keyword_provider == 'nlp':
+                keyword_provider = KeywordNLPProvider(self.args)
+            elif self.args.ec_keyword_provider == 'passthru':
+                keyword_provider = PassThruKeywordProvider(self.args)
+            else:
+                raise ValueError(f'Invalid ec_keyword_provider arg. Expected one of: llm, vss, nlp, passthru')
+            
+            if self.args.ec_entity_provider == 'graph':
+                entity_provider = EntityProvider(self.graph_store, self.args, self.filter_config)
+            elif self.args.ec_entity_provider == 'vss':
+                entity_provider = EntityVSSProvider(self.graph_store, self.vector_store, self.args, self.filter_config)
+            else:
+                raise ValueError(f'Invalid ec_entity_provider arg. Expected one of: graph, vss')
+            
+            logger.debug(f'Entity context strategy: {type(keyword_provider).__name__} + {type(entity_provider).__name__}')
+            
+            entity_context_provider = EntityContextProvider(self.graph_store, self.args)
+
+            keywords = keyword_provider.get_keywords(query_bundle)
+            entities = entity_provider.get_entities(keywords)
+            entity_contexts = entity_context_provider.get_entity_contexts(entities, query_bundle)
+
+            end = time.time()
+            duration_ms = (end-start) * 1000
+
+            logger.debug(f'Retrieved {len(entity_contexts)} entity contexts ({duration_ms:.2f}ms)')
+
+            self.entity_contexts.extend(entity_contexts)
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """
@@ -173,9 +247,11 @@ class TraversalBasedBaseRetriever(BaseRetriever):
             List[NodeWithScore]: A list of nodes with their associated scores, ready for further processing or display.
 
         """
-        logger.debug(f'[{type(self).__name__}] Begin retrieve [args: {self.args.to_dict()}]')
+        logger.debug(f'[{type(self).__name__}] Begin retrieve [query: {query_bundle.query_str}, args: {self.args.to_dict()}]')
         
         start_retrieve = time.time()
+
+        self._init_entity_contexts(query_bundle)
         
         start_node_ids = self.get_start_node_ids(query_bundle)
         search_results:SearchResultCollection = self.do_graph_search(query_bundle, start_node_ids)
@@ -198,11 +274,19 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         logger.debug(f'[{type(self).__name__}] Retrieval: {retrieval_ms:.2f}ms')
         logger.debug(f'[{type(self).__name__}] Processing: {processing_ms:.2f}ms')
 
+        entity_context_strs = [
+            ', '.join([entity.entity.value.lower() for entity in entity_context])
+            for entity_context in formatted_search_results.entity_contexts
+        ]
+
         return [
             NodeWithScore(
                 node=TextNode(
                     text=formatted_search_result.model_dump_json(exclude_none=True, exclude_defaults=True, indent=2),
-                    metadata=search_result.model_dump(exclude_none=True, exclude_unset=True, exclude_defaults=True)
+                    metadata={
+                        'result': search_result.model_dump(exclude_none=True, exclude_unset=True, exclude_defaults=True),
+                        'entity_contexts': entity_context_strs
+                    }
                 ), 
                 score=search_result.score
             ) 
@@ -227,13 +311,28 @@ class TraversalBasedBaseRetriever(BaseRetriever):
             SearchResultCollection: A collection object containing the validated and
             filtered search results.
         """
-        search_results = [
-            SearchResult.model_validate(result['result']) 
-            for result in results
-            if result['result'].get('source', None)
-        ]
+        
+        search_results = []
+        
+        for result in results:
+            if isinstance(result, SearchResult):
+                search_results.append(result)
+            elif result['result'].get('source', None):
+                search_results.append(SearchResult.model_validate(result['result']) )
 
-        return SearchResultCollection(results=search_results)
+        try:
+            toolkit_version = f" ({version('graphrag-toolkit-lexical-graph')})"
+        except PackageNotFoundError:
+            toolkit_version = ''
+
+        retriever_name = f'{type(self).__name__}{toolkit_version}'
+
+        for result in search_results:
+            for topic in result.topics:
+                for statement in topic.statements:
+                    statement.retrievers.append(retriever_name)
+
+        return SearchResultCollection(results=search_results, entity_contexts=self.entity_contexts)
 
     @abc.abstractmethod
     def get_start_node_ids(self, query_bundle: QueryBundle) -> List[str]:

@@ -9,3 +9,6 @@ class BatchJobError(Exception):
 
 class IndexError(Exception):
     pass
+
+class GraphQueryError(Exception):
+    pass

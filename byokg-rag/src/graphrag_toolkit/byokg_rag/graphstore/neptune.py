@@ -143,7 +143,7 @@ class NeptuneAnalyticsGraphStore(GraphStore):
         return self.node_type_to_property_mapping[node_label]
 
     def execute_query(self, cypher, parameters={}):
-        logger.info("GraphQuery::", cypher)
+        logger.info(f"GraphQuery::{cypher}")
         response =  self.neptune_client.execute_query(
             graphIdentifier=self.neptune_graph_id,
             queryString=cypher,

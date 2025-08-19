@@ -32,6 +32,7 @@ class Statement(BaseModel):
     chunkId:Optional[str]=None
     score:Optional[float]=None
     statement_str:Optional[str]=None
+    retrievers:List[str]=[]
 
 StatementType = Union[Statement, str]
 
@@ -79,6 +80,7 @@ class Topic(BaseModel):
     model_config = ConfigDict(strict=True)
 
     topic:str
+    topicId:str
     chunks:List[Chunk]=[]
     statements:List[StatementType]=[]  
 
@@ -168,6 +170,7 @@ class ScoredEntity(BaseModel):
 
     entity:Entity
     score:float
+    reranking_score:Optional[float]=0.0
 
 class SearchResultCollection(BaseModel):
     """
@@ -188,7 +191,7 @@ class SearchResultCollection(BaseModel):
     model_config = ConfigDict(strict=True)
 
     results: List[SearchResult]=[]
-    entities: List[ScoredEntity]=[]
+    entity_contexts: List[List[ScoredEntity]]=[]
 
     def add_search_result(self, result:SearchResult):
         """
@@ -204,26 +207,6 @@ class SearchResultCollection(BaseModel):
                 to be added to the list of results.
         """
         self.results.append(result)
-
-    def add_entity(self, entity:ScoredEntity):
-        """
-        Adds an entity to the list of entities, either merging it with an existing entity
-        or appending it as a new entry.
-
-        If the entity already exists in the list (based on a matching `entityId`),
-        its score is incremented by the score of the added entity. Otherwise, the
-        new entity is appended to the list.
-
-        Args:
-            entity (ScoredEntity): The scored entity to add or merge with an existing entity.
-        """
-        if self.entities is None:
-            self.entities = []
-        existing_entity = next((x for x in self.entities if x.entity.entityId == entity.entity), None)
-        if existing_entity:
-            existing_entity.score += entity.score
-        else:
-            self.entities.append(entity)
 
     def with_new_results(self, results:List[SearchResult]):
         """
