@@ -125,16 +125,13 @@ class EntityContextSearch(TraversalBasedBaseRetriever):
 
         sub_retriever = self._get_sub_retriever()
         
-        entity_contexts = [ 
-            [ entity.entity.value for entity in entity_context ]
-            for entity_context in self.entity_contexts     
-        ]
+        entity_contexts = self.entity_contexts.context_strs
 
         search_results = []
 
         for entity_context in entity_contexts[:self.args.ec_max_contexts]:
             if entity_context:
-                results = sub_retriever.retrieve(QueryBundle(query_str=', '.join(entity_context)))
+                results = sub_retriever.retrieve(QueryBundle(query_str=entity_context))
                 for result in results:
                     search_results.append(SearchResult.model_validate(result.metadata['result']))
                     

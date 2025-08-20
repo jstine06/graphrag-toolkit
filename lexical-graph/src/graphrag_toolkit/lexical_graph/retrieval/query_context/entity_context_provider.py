@@ -6,7 +6,7 @@ from typing import List, Dict
 
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.graph.graph_utils import node_result
-from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity
+from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity, EntityContexts, EntityContext
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorArgs
 from graphrag_toolkit.lexical_graph.utils.tfidf_utils import score_values
 
@@ -206,7 +206,7 @@ class EntityContextProvider():
         return contexts
 
                         
-    def get_entity_contexts(self, entities:List[ScoredEntity], query_bundle:QueryBundle)  -> List[List[ScoredEntity]]:
+    def get_entity_contexts(self, entities:List[ScoredEntity], query_bundle:QueryBundle)  -> EntityContexts:
 
         start = time.time()
 
@@ -237,6 +237,5 @@ class EntityContextProvider():
             str([e.entity.value for e in context])
             for context in entity_contexts
         ]}""")
-    
-       
-        return entity_contexts
+
+        return EntityContexts(contexts=[EntityContext(entities=entities) for entities in entity_contexts])

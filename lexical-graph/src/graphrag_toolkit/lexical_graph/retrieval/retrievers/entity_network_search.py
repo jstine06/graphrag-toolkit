@@ -82,17 +82,6 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
         statement_ids = [r['l'] for r in results]
 
         return self.get_statements_by_topic_and_source(statement_ids)
-
-    def _get_entity_context_strings(self) -> List[str]:
-
-        context_strs = [
-            ', '.join([entity.entity.value.lower() for entity in entity_context])
-            for entity_context in self.entity_contexts
-        ]
-    
-        logger.debug(f'context_strs: {context_strs}')
-
-        return context_strs
     
     def _get_node_ids(self, query_bundle: QueryBundle) -> List[str]:
 
@@ -110,9 +99,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
             
         all_start_node_ids = self._get_node_ids(query_bundle)
         
-        entity_context_strs = self._get_entity_context_strings()
-
-        for entity_context_str in entity_context_strs:
+        for entity_context_str in self.entity_contexts.context_strs:
             all_start_node_ids.extend(self._get_node_ids(QueryBundle(query_str=entity_context_str)))
 
         start_node_ids = list(set(all_start_node_ids))
