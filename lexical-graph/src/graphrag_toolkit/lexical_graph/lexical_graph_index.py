@@ -167,7 +167,7 @@ class IndexingConfig():
                 operations. If None, batch inference is not used.
         """
         if chunking is not None and len(chunking) == 0:
-            chunking.append(SentenceSplitter(chunk_size=256, chunk_overlap=20))
+            chunking.append(SentenceSplitter(chunk_size=256, chunk_overlap=25))
 
         self.chunking = chunking  # None = no chunking
         self.extraction = extraction or ExtractionConfig()
