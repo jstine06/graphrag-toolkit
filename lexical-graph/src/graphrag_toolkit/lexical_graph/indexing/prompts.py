@@ -104,7 +104,7 @@ Do not provide any other explanatory text. Ensure you have captured all of the d
 </text>
 """
 
-EXTRACT_TOPICS_PROMPT = """
+EXTRACT_TOPICS_PROMPT_PROPOSED = """
 You are a top-tier algorithm designed for extracting information in structured formats to build a knowledge graph.
 
 Your input consists of: 
@@ -218,7 +218,7 @@ Adhere strictly to the provided instructions
 </preferredEntityClassifications>
 """
 
-EXTRACT_TOPICS_PROMPT_20_08_2025 = """
+EXTRACT_TOPICS_PROMPT = """
 You are a top-tier algorithm designed for extracting information in structured formats to build a knowledge graph.
 Your input consists of carefully crafted propositions - simple, atomic, and decontextualized statements. Your task is to:
    1. Organize these propositions into topics

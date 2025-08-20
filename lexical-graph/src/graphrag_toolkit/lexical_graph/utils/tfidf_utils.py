@@ -48,7 +48,7 @@ def score_values(values:List[str],
         except ValueError:
             scored_values = {v: [0.0] for v in values_to_score if v}
 
-        scored_values = { k: statistics.mean(v) for k,v in scored_values.items() }  
+        scored_values = { k: round(statistics.mean(v), 4) for k,v in scored_values.items() }  
         sorted_scored_values = dict(sorted(scored_values.items(), key=lambda item: item[1], reverse=True))
         
         return sorted_scored_values
