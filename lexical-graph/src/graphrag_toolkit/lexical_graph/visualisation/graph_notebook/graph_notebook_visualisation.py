@@ -8,7 +8,6 @@ import json
 from json import JSONDecodeError
 from typing import Optional
 
-from graphrag_toolkit.lexical_graph.visualisation.visualisation_base import VisualisationBase
 from graphrag_toolkit.lexical_graph.retrieval.model import SearchResult
 from graphrag_toolkit.lexical_graph.tenant_id import to_tenant_id
 
@@ -94,7 +93,7 @@ def get_schema_query(tenant_id):
 
     return cypher
 
-class GraphNotebookVisualisation(VisualisationBase):
+class GraphNotebookVisualisation():
 
     def __init__(self, display_edge_labels=False, formatting_config=None, nb_classic=False):
         self.display_edge_labels = display_edge_labels
