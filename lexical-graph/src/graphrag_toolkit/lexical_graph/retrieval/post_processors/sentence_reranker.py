@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional, Any
 
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import RerankerMixin
 
-from llama_index.core.bridge.pydantic import Field
+from llama_index.core.bridge.pydantic import Field, PrivateAttr
 from llama_index.core.postprocessor import SentenceTransformerRerank
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class SentenceReranker(SentenceTransformerRerank, RerankerMixin):
         batch_size_internal (int): Internal batch size used during reranking.
     """
     batch_size_internal: int = Field(default=128)
-
+    
     def __init__(
         self,
         top_n: int = 2,
