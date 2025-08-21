@@ -14,11 +14,17 @@ from graphrag_toolkit.lexical_graph.tenant_id import to_tenant_id
 LABELS_TO_REFORMAT = ['Source', 'Chunk', 'Topic', 'Statement', 'Fact', 'Entity']
 
 def format_params(params):
-    return (str(params)
+    
+    params_strs = [
+        (str(param)
         .replace("'startId'", 'startId')
         .replace("'intermediateIds'", 'intermediateIds')
         .replace("'endId'", 'endId')
         .replace("'endIds'", 'endIds'))
+        for param in params
+    ]
+    
+    return f'[{",".join(s for s in set(params_strs))}]'
 
 def for_each_disjoint_unique(values):
     params = []
@@ -33,6 +39,15 @@ def get_query_params(nodes):
     topic_statement_ids = []
     statement_ids = []
     entity_ids = set()
+    entity_entity_ids = []
+    
+    def get_chunk_ids(topic):
+        chunk_ids = [
+            statement.chunkId
+            for statement in topic.statements
+        ]
+        
+        return list(set(chunk_ids))
     
     for n in nodes:
         
@@ -40,14 +55,23 @@ def get_query_params(nodes):
         entity_contexts = EntityContexts.model_validate(n.metadata['entity_contexts'])
         
         for entity_context in entity_contexts.contexts:
+            prev_entity_id = None
             for entity in entity_context.entities:
-                entity_ids.add(entity.entity.entityId)
+                entity_id = entity.entity.entityId
+                entity_ids.add(entity_id)
+                if prev_entity_id:
+                    entity_entity_ids.append({'startId': prev_entity_id, 'endId': entity_id})
+                prev_entity_id = entity_id
         
         source_id = search_result.source.sourceId
         
         for topic in search_result.topics:
         
-            source_topic_ids.append({'startId': source_id, 'endId': topic.topicId})
+            source_topic_ids.append({
+                'startId': source_id, 
+                'intermediateIds': get_chunk_ids(topic), 
+                'endId': topic.topicId
+            })
             
             for statement in topic.statements:
             
@@ -62,7 +86,9 @@ def get_query_params(nodes):
         'entity_statement_ids': [
             {'startId': entity_id, 'endIds': statement_ids }
             for entity_id in entity_ids
-        ]
+        ],
+        'entity_ids': list(entity_ids),
+        'entity_entity_ids': entity_entity_ids
     }
     
     return query_parameters
@@ -71,8 +97,10 @@ def get_query(query_parameters, include_sources=True):
     
     sources_cypher = '' if not include_sources else f'''
     UNWIND {format_params(query_parameters["source_topic_ids"])} AS source_topic_ids
-    MATCH p=(s)<-[:`__EXTRACTED_FROM__`]-()<-[:`__MENTIONED_IN__`]-(t)
-    WHERE id(s) = source_topic_ids.startId AND id(t) = source_topic_ids.endId
+    MATCH p=(s)<-[:`__EXTRACTED_FROM__`]-(c)<-[:`__MENTIONED_IN__`]-(t)
+    WHERE id(s) = source_topic_ids.startId
+    AND id(c) in source_topic_ids.intermediateIds
+    AND id(t) = source_topic_ids.endId
     RETURN p
     UNION
     '''
@@ -100,6 +128,22 @@ def get_query(query_parameters, include_sources=True):
     WHERE id(e) = entity_statement_ids.startId AND id(f) IN entity_statement_ids.endIds
     RETURN p LIMIT 10
     }}
+    RETURN p
+    '''
+    
+    return cypher
+
+def get_entity_context_query(query_parameters):
+    
+    cypher = f'''
+    MATCH p=(e)
+    WHERE id(e) in {str(query_parameters["entity_ids"])} 
+    RETURN p
+    UNION
+    UNWIND {format_params(query_parameters["entity_entity_ids"])} AS entity_entity_ids
+    MATCH p=(e1)-->(e2)
+    WHERE id(e1) = entity_entity_ids.startId
+    AND id(e2) = entity_entity_ids.endId
     RETURN p
     '''
     
@@ -268,8 +312,8 @@ class GraphNotebookVisualisation():
         g.oc(line, cell=cypher, local_ns={}) 
 
 
-    def display_results(self, response, include_sources=True):
-
+    def _display(self, cypher):
+        
         face = 'FontAwesome' if self.nb_classic else "'Font Awesome 5 Free'"
         
         formatting_config = self.formatting_config or f'''
@@ -343,9 +387,21 @@ class GraphNotebookVisualisation():
 
         edge_label_length = 25 if self.display_edge_labels else 0
         line = f'query -d value -l 25 -rel {edge_label_length}'
+        
+        g.oc(line, cell=cypher, local_ns={}) 
+    
+    def display_results(self, response, include_sources=True):
 
         nodes = response if isinstance(response, list) else response.source_nodes
         query_parameters = get_query_params(nodes)
         cypher = get_query(query_parameters, include_sources)
         
-        g.oc(line, cell=cypher, local_ns={}) 
+        self._display(cypher)
+        
+    def display_entity_contexts(self, response):
+
+        nodes = response if isinstance(response, list) else response.source_nodes
+        query_parameters = get_query_params(nodes)
+        cypher = get_entity_context_query(query_parameters)
+        
+        self._display(cypher)
