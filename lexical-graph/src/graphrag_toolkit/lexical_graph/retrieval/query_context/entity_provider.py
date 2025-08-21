@@ -11,6 +11,7 @@ from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity
 from graphrag_toolkit.lexical_graph.retrieval.query_context.entity_provider_base import EntityProviderBase
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorArgs
 
+from llama_index.core.schema import QueryBundle
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class EntityProvider(EntityProviderBase):
             if result['result']['score'] != 0
         ]
                         
-    def _get_entities(self, keywords:List[str])  -> List[ScoredEntity]:
+    def _get_entities(self, keywords:List[str], query_bundle:QueryBundle)  -> List[ScoredEntity]:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.num_workers) as p:
             scored_entity_batches:Iterator[List[ScoredEntity]] = p.map(self._get_entities_for_keyword, keywords)
