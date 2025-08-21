@@ -14,6 +14,8 @@ Installation instructions and requirements are detailed separately with each too
 
 The [lexical-graph](./lexical-graph/) provides a framework for automating the construction of a [hierarchical lexical graph](./docs/lexical-graph/graph-model.md) from unstructured data, and composing question-answering strategies that query this graph when answering user questions.
 
+![Lexical graph](./images/visualisation.png)
+
 ### BYOKG-RAG
 
 [BYOKG-RAG](./byokg-rag/) is a novel approach to Knowledge Graph Question Answering (KGQA) that combines the power of Large Language Models (LLMs) with structured knowledge graphs. The system allows users to bring their own knowledge graph and perform complex question answering over it.

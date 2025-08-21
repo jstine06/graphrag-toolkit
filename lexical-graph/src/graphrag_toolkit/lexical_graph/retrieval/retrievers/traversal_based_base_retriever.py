@@ -272,13 +272,15 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         logger.debug(f'[{type(self).__name__}] Retrieval: {retrieval_ms:.2f}ms')
         logger.debug(f'[{type(self).__name__}] Processing: {processing_ms:.2f}ms')
 
+        entity_contexts = formatted_search_results.entity_contexts.model_dump()
+
         return [
             NodeWithScore(
                 node=TextNode(
                     text=formatted_search_result.model_dump_json(exclude_none=True, exclude_defaults=True, indent=2),
                     metadata={
                         'result': search_result.model_dump(exclude_none=True, exclude_unset=True, exclude_defaults=True),
-                        'entity_contexts': formatted_search_results.entity_contexts.context_strs
+                        'entity_contexts': entity_contexts
                     }
                 ), 
                 score=search_result.score

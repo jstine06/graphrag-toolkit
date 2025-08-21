@@ -8,13 +8,17 @@ import json
 from json import JSONDecodeError
 from typing import Optional
 
-from graphrag_toolkit.lexical_graph.retrieval.model import SearchResult
+from graphrag_toolkit.lexical_graph.retrieval.model import SearchResult, EntityContexts
 from graphrag_toolkit.lexical_graph.tenant_id import to_tenant_id
 
 LABELS_TO_REFORMAT = ['Source', 'Chunk', 'Topic', 'Statement', 'Fact', 'Entity']
 
 def format_params(params):
-    return str(params).replace("'startId'", 'startId').replace("'endId'", 'endId').replace("'endIds'", 'endIds')
+    return (str(params)
+        .replace("'startId'", 'startId')
+        .replace("'intermediateIds'", 'intermediateIds')
+        .replace("'endId'", 'endId')
+        .replace("'endIds'", 'endIds'))
 
 def for_each_disjoint_unique(values):
     params = []
@@ -28,10 +32,17 @@ def get_query_params(nodes):
     source_topic_ids = []
     topic_statement_ids = []
     statement_ids = []
+    entity_ids = set()
     
     for n in nodes:
         
         search_result = SearchResult.model_validate(n.metadata['result'])
+        entity_contexts = EntityContexts.model_validate(n.metadata['entity_contexts'])
+        
+        for entity_context in entity_contexts.contexts:
+            for entity in entity_context.entities:
+                entity_ids.add(entity.entity.entityId)
+        
         source_id = search_result.source.sourceId
         
         for topic in search_result.topics:
@@ -47,7 +58,11 @@ def get_query_params(nodes):
     query_parameters = { 
         'source_topic_ids': source_topic_ids,
         'topic_statement_ids': topic_statement_ids,
-        'statement_id_sets': for_each_disjoint_unique(statement_ids)
+        'statement_id_sets': for_each_disjoint_unique(statement_ids),
+        'entity_statement_ids': [
+            {'startId': entity_id, 'endIds': statement_ids }
+            for entity_id in entity_ids
+        ]
     }
     
     return query_parameters
@@ -69,10 +84,23 @@ def get_query(query_parameters, include_sources=True):
     RETURN p
     UNION
     UNWIND {format_params(query_parameters["statement_id_sets"])} AS statement_id_sets
+    CALL {{
+    WITH statement_id_sets
     MATCH p=(l)<-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-()
             -[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->(ll)
     WHERE id(l) = statement_id_sets.startId AND id(ll) IN statement_id_sets.endIds
     RETURN p LIMIT 10
+    }}
+    RETURN p
+    UNION
+    UNWIND {format_params(query_parameters["entity_statement_ids"])} AS entity_statement_ids
+    CALL {{
+    WITH entity_statement_ids
+    MATCH p=(e)-[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->(f)
+    WHERE id(e) = entity_statement_ids.startId AND id(f) IN entity_statement_ids.endIds
+    RETURN p LIMIT 10
+    }}
+    RETURN p
     '''
     
     return cypher
