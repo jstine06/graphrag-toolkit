@@ -15,10 +15,10 @@ class PruneStatements(ProcessorBase):
 
     def _process_results(self, search_results:SearchResultCollection, query:QueryBundle) -> SearchResultCollection:
         
-        if not self.args.statement_pruning_factor:
+        if not search_results.results:
             return search_results
         
-        if not search_results.results:
+        if not self.args.statement_pruning_factor and not self.args.statement_pruning_threshold:
             return search_results
         
         max_statement_score = max([
@@ -28,13 +28,15 @@ class PruneStatements(ProcessorBase):
                 for statement in topic.statements
             ])
         
-        min_threshhold = max_statement_score * self.args.statement_pruning_factor
+        min_threshold = max_statement_score * self.args.statement_pruning_factor
+
+        min_threshold = min_threshold if not self.args.statement_pruning_threshold else max(min_threshold, self.args.statement_pruning_threshold)
 
         def prune_statements(topic:Topic):
             surviving_statements = [
                 s 
                 for s in topic.statements 
-                if s.score >= min_threshhold
+                if s.score >= min_threshold
             ]
             topic.statements = surviving_statements
             return topic

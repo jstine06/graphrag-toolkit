@@ -14,7 +14,11 @@ from graphrag_toolkit.lexical_graph.tenant_id import to_tenant_id
 LABELS_TO_REFORMAT = ['Source', 'Chunk', 'Topic', 'Statement', 'Fact', 'Entity']
 
 def format_params(params):
-    return str(params).replace("'startId'", 'startId').replace("'endId'", 'endId').replace("'endIds'", 'endIds')
+    return (str(params)
+        .replace("'startId'", 'startId')
+        .replace("'intermediateIds'", 'intermediateIds')
+        .replace("'endId'", 'endId')
+        .replace("'endIds'", 'endIds'))
 
 def for_each_disjoint_unique(values):
     params = []
