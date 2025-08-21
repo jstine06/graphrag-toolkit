@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import statistics
+import numpy
 import tfidf_matcher as tm
 from typing import List, Optional
 
@@ -47,8 +48,12 @@ def score_values(values:List[str],
                                          
         except ValueError:
             scored_values = {v: [0.0] for v in values_to_score if v}
+            
+        def to_float(v):
+            v = round(v, 4)
+            return v.item() if isinstance(v, numpy.float64) else v
 
-        scored_values = { k: statistics.mean(v) for k,v in scored_values.items() }  
+        scored_values = { k: to_float(statistics.mean(v)) for k,v in scored_values.items() }  
         sorted_scored_values = dict(sorted(scored_values.items(), key=lambda item: item[1], reverse=True))
         
         return sorted_scored_values
