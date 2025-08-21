@@ -41,8 +41,9 @@ RetrieverType = Union[BaseRetriever, Type[BaseRetriever]]
 PostProcessorsType = Union[BaseNodePostprocessor, List[BaseNodePostprocessor]]
 
 
-
 class LexicalGraphQueryEngine(BaseQueryEngine):
+       
+
     """
     Defines the LexicalGraphQueryEngine class, which serves as a query engine for retrieving and generating responses
     from graph and vector stores using different retrieval strategies.
