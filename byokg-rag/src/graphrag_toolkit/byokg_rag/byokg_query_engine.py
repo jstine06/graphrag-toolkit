@@ -82,15 +82,18 @@ class ByoKGQueryEngine:
             graph_query_executor = GraphQueryRetriever(self.graph_store)
         self.graph_query_executor = graph_query_executor
 
-        if kg_linker is None:
+        if kg_linker is None and cypher_kg_linker is None: #initialize KGLinker as default
             from graph_connectors import KGLinker
             kg_linker = KGLinker(
                 llm_generator=self.llm_generator,
                 graph_store=self.graph_store
             )
-        self.kg_linker = kg_linker
-        self.kg_linker_prompts = self.kg_linker.task_prompts
-        self.kg_linker_prompts_iterative = self.kg_linker.task_prompts_iterative
+        elif kg_linker is not None and cypher_kg_linker is not  None: #TODO
+            raise NotImplementedError
+        if kg_linker is not None:
+            self.kg_linker = kg_linker
+            self.kg_linker_prompts = self.kg_linker.task_prompts
+            self.kg_linker_prompts_iterative = self.kg_linker.task_prompts_iterative
 
         if cypher_kg_linker is not None:
             assert hasattr(cypher_kg_linker, "is_cypher_linker"), "cypher_kg_linker must be an instance of CypherKGLinker"
@@ -156,7 +159,7 @@ class ByoKGQueryEngine:
         return retrieved_context_with_feedback
 
 
-    def query(self, query: str, iterations: int = 1) -> Tuple[List[str], List[str]]:
+    def query(self, query: str, iterations: int = 2) -> Tuple[List[str], List[str]]:
         """
         Process a query through the retrieval and generation pipeline.
 
@@ -176,6 +179,11 @@ class ByoKGQueryEngine:
             explored_entities.update(semantic_linked_entities)
         else:
             semantic_linked_entities = []
+
+        if self.cypher_kg_linker is not None:
+            retrieved_context_with_feedback = self.cypher_query(query, iterations=iterations)
+            # TODO: merge logic with code snippet below
+            return retrieved_context_with_feedback
 
         for iteration in range(iterations):
             # Generate response for current iteration
