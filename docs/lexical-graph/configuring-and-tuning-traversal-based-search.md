@@ -136,17 +136,17 @@ query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
 
 The tfidf reranker option provides a fast, cost-effective, and generally effective solution for most use cases. However, if you find that the results don't meet your requirements, consider switching to the model reranker. Be aware that while model may provide different results, it operates significantly slower than tfidf and doesn't guarantee improved outcomes.
 
-An effective reranking strategy should ensure that only highly relevant statements appear in your final results. For reranking to work properly, the relevant statements must first be captured by your retrievers before the reranking process begins.
-
 ##### Troubleshooting poor results
+
+An effective reranking strategy should ensure that only highly relevant statements appear in your final results. For reranking to work properly, the relevant statements must first be captured by your retrievers before the reranking process begins.
 
 If your search results don't include content you expect to see, verify whether this content is present in the pre-ranked results by:
 
   1. Disabling the reranker by setting `reranker=None`
   2. Increasing the following parameters in your [search results configuration](#search-results-configuration):
-    - Maximum number of search results
-    - Maximum number of statements
-    - Maximum number of statements per topic
+     - Maximum number of search results
+     - Maximum number of statements
+     - Maximum number of statements per topic
 
 After making these adjustments, review the results returned by the `retrieve()` operation. If the expected content still doesn't appear, the issue isn't related to reranking. Instead, consider other tuning approaches described elsewhere in the documentation, such as:
 
