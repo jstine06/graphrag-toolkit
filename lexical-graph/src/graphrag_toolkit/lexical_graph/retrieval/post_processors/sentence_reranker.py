@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-import numpy
 from typing import List, Tuple, Optional, Any
 
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import RerankerMixin
@@ -29,7 +28,7 @@ class SentenceReranker(SentenceTransformerRerank, RerankerMixin):
         batch_size_internal (int): Internal batch size used during reranking.
     """
     batch_size_internal: int = Field(default=128)
-
+    
     def __init__(
         self,
         top_n: int = 2,

@@ -89,7 +89,13 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
         if not self.entity_contexts:
             logger.warning(f'No entity ids available for entity based search')
 
-        return [entity_context[0].entity.entityId for entity_context in self.entity_contexts] 
+        entity_ids = [
+            entity.entity.entityId 
+            for entity_context in self.entity_contexts.contexts
+            for entity in entity_context.entities
+        ]
+
+        return list(set(entity_ids)) 
     
     def _for_each_disjoint(self, values:List[Any], others:Optional[List[Any]]=None) -> Generator[Tuple[Any, List[Any]], None, None]:
         """

@@ -114,8 +114,6 @@ class RerankStatements(ProcessorBase):
         """
         logger.debug('Reranking with SentenceReranker')
 
-        reranker = SentenceReranker(model=self.reranking_model, top_n=self.args.max_statements or len(values))
-
         extras = ', '.join(entity_contexts.context_strs)
 
         rank_query = (
@@ -123,6 +121,8 @@ class RerankStatements(ProcessorBase):
             if not extras 
             else QueryBundle(query_str=f'{query.query_str} (keywords: {extras})')
         )
+
+        reranker = SentenceReranker(model=self.reranking_model, top_n=self.args.max_statements or len(values))
 
         reranked_values = reranker.postprocess_nodes(
             [
