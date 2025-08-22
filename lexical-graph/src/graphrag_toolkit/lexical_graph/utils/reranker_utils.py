@@ -6,7 +6,13 @@ import numpy
 import tfidf_matcher as tm
 from typing import List, Optional
 
-def score_values(values:List[str], 
+def to_float(v):
+    if isinstance(v, numpy.float64) or isinstance(v, numpy.float32):
+        return v.item()
+    else:
+        return v
+
+def score_values_with_tfidf(values:List[str], 
                  match_values:List[str], 
                  limit:Optional[int]=None, 
                  ngram_length:Optional[int]=3, 
@@ -49,10 +55,6 @@ def score_values(values:List[str],
         except ValueError:
             scored_values = {v: [0.0] for v in values_to_score if v}
             
-        def to_float(v):
-            v = round(v, 4)
-            return v.item() if isinstance(v, numpy.float64) else v
-
         scored_values = { k: to_float(statistics.mean(v)) for k,v in scored_values.items() }  
         sorted_scored_values = dict(sorted(scored_values.items(), key=lambda item: item[1], reverse=True))
         

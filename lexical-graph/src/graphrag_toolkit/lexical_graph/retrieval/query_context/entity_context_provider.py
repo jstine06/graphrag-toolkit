@@ -8,7 +8,6 @@ from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.graph.graph_utils import node_result
 from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity, EntityContexts, EntityContext
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorArgs
-from graphrag_toolkit.lexical_graph.utils.tfidf_utils import score_values
 
 from llama_index.core.schema import QueryBundle
 

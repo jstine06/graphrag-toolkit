@@ -10,7 +10,7 @@ from graphrag_toolkit.lexical_graph.storage.vector import VectorStore
 from graphrag_toolkit.lexical_graph.storage.vector import DummyVectorIndex
 from graphrag_toolkit.lexical_graph.storage.graph.graph_utils import node_result
 from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity
-from graphrag_toolkit.lexical_graph.utils.tfidf_utils import score_values
+from graphrag_toolkit.lexical_graph.utils.reranker_utils import score_values_with_tfidf
 from graphrag_toolkit.lexical_graph.retrieval.query_context.entity_provider_base import EntityProviderBase
 from graphrag_toolkit.lexical_graph.retrieval.query_context.entity_provider import EntityProvider
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorArgs
@@ -122,7 +122,7 @@ class EntityVSSProvider(EntityProviderBase):
     def _get_reranked_entity_names_tfidf(self, entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
         
         entity_names = [entity.entity.value.lower() for entity in entities]
-        reranked_entity_names = score_values(entity_names, keywords)
+        reranked_entity_names = score_values_with_tfidf(entity_names, keywords)
 
         logger.debug(f'reranking (tfidf): [keywords: {keywords}, reranked_entity_names: {reranked_entity_names}]')
 
@@ -131,9 +131,13 @@ class EntityVSSProvider(EntityProviderBase):
     def _get_reranked_entity_names(self, entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
  
         if self.args.reranker == 'model':
-            return self._get_reranked_entity_names_model(entities, keywords) 
+            results = self._get_reranked_entity_names_model(entities, keywords) 
         else:
-            return self._get_reranked_entity_names_tfidf(entities, keywords)
+            results = self._get_reranked_entity_names_tfidf(entities, keywords)
+
+        return {
+            k:round(v, 4) for k,v in results.items()
+        }
         
     def _get_entities_by_keyword_match(self, keywords:List[str], query_bundle:QueryBundle) -> List[ScoredEntity]:
         initial_entity_provider = EntityProvider(self.graph_store, self.args, self.filter_config)

@@ -2,12 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import numpy
 from typing import List, Tuple, Optional, Any
 
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import RerankerMixin
+from graphrag_toolkit.lexical_graph.utils.reranker_utils import to_float
 
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
 from llama_index.core.postprocessor import SentenceTransformerRerank
+from llama_index.core.schema import NodeWithScore, QueryBundle
 
 logger = logging.getLogger(__name__)
 
@@ -111,5 +114,19 @@ class SentenceReranker(SentenceTransformerRerank, RerankerMixin):
             List[float]: A list of prediction scores for each pair, indicating their similarity
                 or relevance.
         """
-        return self._model.predict(sentences=pairs, batch_size=batch_size, show_progress_bar=False)
+        return [
+            to_float(r) 
+            for r in self._model.predict(sentences=pairs, batch_size=batch_size, show_progress_bar=False)
+        ] 
+    
+    def _postprocess_nodes(
+        self,
+        nodes: List[NodeWithScore],
+        query_bundle: Optional[QueryBundle] = None,
+    ) -> List[NodeWithScore]:
+        results = super()._postprocess_nodes(nodes, query_bundle)
+        for r in results:
+            r.score = to_float(r.score)
+        return results
+        
 
