@@ -112,11 +112,11 @@ Reranking is managed through a single parameter:
 
 Parameters options:
 
-  - `model`: Uses a LlamaIndex-based `SentenceReranker` to rerank all statements in the result set.
-  - `tfidf` (default): Applies a term frequency-inverse document frequency measure to rank statements. This option is significantly faster than the model-based approach.
-  - `None`: Disables the reranking feature completely.
+  - `model`: Uses a LlamaIndex-based `SentenceReranker` to rerank all statements in the result set
+  - `tfidf` (default): Applies a term frequency-inverse document frequency measure to rank statements 
+  - `None`: Disables the reranking feature completely
 
-To use the model reranker, you must install the following additional dependencies:
+The tfidf-based option is significantly faster than the model-based approach. To use the model reranker, you must first install the following additional dependencies:
 
 ```
 pip install torch sentence_transformers
@@ -132,6 +132,27 @@ query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
 )
 ```
 
+#### Choosing a reranker strategy
+
+The tfidf reranker option provides a fast, cost-effective, and generally effective solution for most use cases. However, if you find that the results don't meet your requirements, consider switching to the model reranker. Be aware that while model may provide different results, it operates significantly slower than tfidf and doesn't guarantee improved outcomes.
+
+An effective reranking strategy should ensure that only highly relevant statements appear in your final results. For reranking to work properly, the relevant statements must first be captured by your retrievers before the reranking process begins.
+
+##### Troubleshooting poor results
+
+If your search results don't include content you expect to see, verify whether this content is present in the pre-ranked results by:
+
+  1. Disabling the reranker by setting `reranker=None`
+  2. Increasing the following parameters in your [search results configuration](#search-results-configuration):
+    - Maximum number of search results
+    - Maximum number of statements
+    - Maximum number of statements per topic
+
+After making these adjustments, review the results returned by the `retrieve()` operation. If the expected content still doesn't appear, the issue isn't related to reranking. Instead, consider other tuning approaches described elsewhere in the documentation, such as:
+
+  - Changing your retriever configuration
+  - Adjusting pruning thresholds
+  - Configuring entity network contexts
 
 ### Graph and vector search parameters
 
