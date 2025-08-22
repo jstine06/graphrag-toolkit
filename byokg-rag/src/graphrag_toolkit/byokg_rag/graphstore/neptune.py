@@ -371,13 +371,16 @@ class NeptuneAnalyticsGraphStore(BaseNeptuneGraphStore):
         return ids, texts_to_embed
 
 class NeptuneDBGraphStore(BaseNeptuneGraphStore):
+    """
+    Graph store for interacting with a Neptune DB cluster
+    """
     def __init__(self, endpoint_url, region=None):
         """
 
-        Create a NeptuneAnalytics backed GraphStore. The GraphStore is a wrapper for interacting with the
-        Neptune Analytics graph object with that graph_id that corresponds to graph_identifier.
+        Create a Neptune Database backed GraphStore. The GraphStore is a wrapper for interacting with the
+        Neptune DB cluster.
 
-        :param graph_identifier: Str. An existing graph identifier (required)
+        :param endpoint_url: Str. The endpoint url of the Neptune DB cluster in the format https://{cluster_endpoint}:{port}
         :param region: Str AWS region
         """
         self.region = region
