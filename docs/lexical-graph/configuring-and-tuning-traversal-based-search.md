@@ -6,7 +6,7 @@ You can customize traversal-based search operations to better suit your specific
 
   - [**Search results configuration**](#search-results-configuration) Adjust the number of search results and statements returned and set scoring thresholds to filter out low-quality statements and results
   - [**Retriever selection**](#retriever-selection) Specify which retrievers to use when fetching information
-  - **Reranking strategy** Modify how statements and results are reranked and sorted
+  - [**Reranking strategy**](#reranking-strategy) Modify how statements and results are reranked and sorted
   - **Graph and vector search parameters** Customize parameters that control graph queries and vector searches
   - **Entity network context selection** Configure parameters used to select entity network contexts
 
@@ -100,6 +100,38 @@ The `EntityBasedSearch` and `EntityNetworkSearch` retrievers provide different w
    - The `EntityNetworkSearch` retriever converts an entity network (retrieved through graph traversal) into a set of similarity searches. This approach balances global and local connectivity.
 
 ### Reranking strategy
+
+Traversal-based search incorporates reranking at two key points during the retrieval process:
+
+  - When generating entity network contexts, both entities and entity networks are reranked
+  - Before finalizing search results, the complete set of statements undergoes reranking
+
+Reranking is managed through a single parameter:
+
+#####  `reranker`
+
+Parameters options:
+
+  - `model`: Uses a LlamaIndex-based `SentenceReranker` to rerank all statements in the result set.
+  - `tfidf` (default): Applies a term frequency-inverse document frequency measure to rank statements. This option is significantly faster than the model-based approach.
+  - `None`: Disables the reranking feature completely.
+
+To use the model reranker, you must install the following additional dependencies:
+
+```
+pip install torch sentence_transformers
+```
+
+#### Example
+
+```python
+query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
+    graph_store, 
+    vector_store,
+    reranker='model'
+)
+```
+
 
 ### Graph and vector search parameters
 
