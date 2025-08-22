@@ -46,6 +46,15 @@ query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
 )
 ```
 
+#### When to use search results configuration
+
+The `max_search_results`, `max_statements_per_topic` and `max_statements` parameters allow you to control the overall size of the results. 
+
+Each search result comprises one or more statements belonging to a single topic from a single source. Statements from the same source but different topics appear as separate search results. Increasing `max_search_results` increases the variety of sources in your results. Increasing `max_statements_per_topic` adds more detail to each individual search result
+
+When increasing the number of statements (either overall or per topic), you should consider increasing the statement pruning parameters as well. This helps ensure that even with larger result sets, you're still getting highly relevant statements rather than less relevant information.
+
+
 ### Retriever selection
 
 ### Reranking strategy
