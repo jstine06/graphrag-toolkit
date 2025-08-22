@@ -84,9 +84,9 @@ query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
 
 #### When to use different retrievers
 
-By default, the traversal-based search is configured to use a combination of `ChunkBasedSearch` and `EntityNetworkSearch`. This combination provides access to content that is both directly similar to the question and content that may be relevant but not explicitly mentioned in the query.
+By default, traversal-based search is configured to use a combination of `ChunkBasedSearch` and `EntityNetworkSearch`. This combination provides access to content that is both directly similar to the question and content that may be relevant but not explicitly mentioned in the query.
 
-Consider using the ChunkBasedSearch retriever by itself if:
+Consider using the `ChunkBasedSearch` retriever by itself if:
 
   - Your queries need primarily similarity-based search
   - You want to focus on individual relevant statements rather than entire chunks
@@ -94,9 +94,10 @@ Consider using the ChunkBasedSearch retriever by itself if:
 
 This retriever uses local connectivity to find relevant statements in other chunks from the same source, expanding beyond basic vector similarity.
 
-If your queries require a primarily similarity-based search, but with a focus on individual relevant statements, rather than whole chunks, consider using the `ChunkBasedSearch` retriever by itself. This retriever uses local connectivity to find relevant statements in other chunks belonging to the same source, therby broadening the scope of the search beyond tarditionl vector search.
+The `EntityBasedSearch` and `EntityNetworkSearch` retrievers provide different ways of utilising entity networks in a search:
 
-The `EntityBasedSearch` and `EntityNetworkSearch` retrievers provide different ways of utilising entity networks in a search. The `EntityBasedSearch` uses global connectivity to find statements from different sources connected by the same facts. It often produces more diverse results than other retrievers. The `EntityNetworkSearch` retriever converts an entity network (retrieved through graph traversal) into a set of similarity searches. This approach balances global and local connectivity.
+  - The `EntityBasedSearch` uses global connectivity to find statements from different sources connected by the same facts. It often produces more diverse results than other retrievers. 
+   - The `EntityNetworkSearch` retriever converts an entity network (retrieved through graph traversal) into a set of similarity searches. This approach balances global and local connectivity.
 
 ### Reranking strategy
 
