@@ -8,7 +8,7 @@ from dateutil.parser import parse
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph import GraphRAGConfig
-from graphrag_toolkit.lexical_graph.utils.tfidf_utils import score_values
+from graphrag_toolkit.lexical_graph.utils.reranker_utils import score_values_with_tfidf
 from graphrag_toolkit.lexical_graph.retrieval.model import Source
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorBase, ProcessorArgs
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import SentenceReranker
@@ -87,7 +87,7 @@ class RerankStatements(ProcessorBase):
         logger.debug(f'match_values: {match_values}')
         logger.debug(f'num_primary_match_values: {num_primary_match_values}')
 
-        scored_values = score_values(
+        scored_values = score_values_with_tfidf(
             values, 
             match_values, 
             self.args.max_statements, 
