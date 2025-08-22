@@ -5,7 +5,7 @@
 You can customize traversal-based search operations to better suit your specific application, dataset, and query types. The following configuration options are available to help you optimize search performance:
 
   - [**Search results configuration**](#search-results-configuration) Adjust the number of search results and statements returned and set scoring thresholds to filter out low-quality statements and results
-  - **Retriever selection** Specify which retrievers to use when fetching information
+  - [**Retriever selection**](#retriever-selection) Specify which retrievers to use when fetching information
   - **Reranking strategy** Modify how statements and results are reranked and sorted
   - **Graph and vector search parameters** Customize parameters that control graph queries and vector searches
   - **Entity network context selection** Configure parameters used to select entity network contexts
@@ -50,12 +50,53 @@ query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
 
 The `max_search_results`, `max_statements_per_topic` and `max_statements` parameters allow you to control the overall size of the results. 
 
-Each search result comprises one or more statements belonging to a single topic from a single source. Statements from the same source but different topics appear as separate search results. Increasing `max_search_results` increases the variety of sources in your results. Increasing `max_statements_per_topic` adds more detail to each individual search result
+Each search result comprises one or more statements belonging to a single topic from a single source. Statements from the same source but different topics appear as separate search results. Increasing `max_search_results` increases the variety of sources in your results. Increasing `max_statements_per_topic` adds more detail to each individual search result.
 
 When increasing the number of statements (either overall or per topic), you should consider increasing the statement pruning parameters as well. This helps ensure that even with larger result sets, you're still getting highly relevant statements rather than less relevant information.
 
-
 ### Retriever selection
+
+You can configure the traversal-based search with up to three different retrievers:
+
+##### `ChunkBasedSearch` 
+
+This retriever uses a vector similarity search to find information that is similar to the original query. The retriever first finds relevant chunks using vector similarity search. From these chunks, the retriever traverses topics, statements, and facts. Chunk-based search tends to return a narrowly-scoped set of results based on the statement and fact neighbourhoods of chunks that match the original query.
+
+##### `EntityBasedSearch`
+
+This retriever uses as its starting points the entities in an entity network context. From these entities, the retriever traverses facts, statements and topics. Entity-based search tends to return a broadly-scoped set of results, based on the neighbourhoods of individual entities and the facts that connect entities.
+
+##### `EntityNetworkSearch` 
+
+This retriever uses textual transcriptions of an entity network context to drive vector searches for information that is dissimilar to the original query but nonetheless structurally relevant for creating an accurate and full response. These vector searches return chunks that are similar to 'something different from the question being asked'. From these chunks, the retriever traverses topics, statements, and facts to explore the structurally relevant space of dissimilar content.
+	
+#### Example
+
+```python
+from graphrag_toolkit.lexical_graph.retrieval.retrievers import *
+
+query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
+    graph_store, 
+    vector_store,
+    retrievers=[ChunkBasedSearch, EntityBasedSearch]
+)
+```
+
+#### When to use different retrievers
+
+By default, the traversal-based search is configured to use a combination of `ChunkBasedSearch` and `EntityNetworkSearch`. This combination provides access to content that is both directly similar to the question and content that may be relevant but not explicitly mentioned in the query.
+
+Consider using the ChunkBasedSearch retriever by itself if:
+
+  - Your queries need primarily similarity-based search
+  - You want to focus on individual relevant statements rather than entire chunks
+  - You need broader search scope than traditional vector search
+
+This retriever uses local connectivity to find relevant statements in other chunks from the same source, expanding beyond basic vector similarity.
+
+If your queries require a primarily similarity-based search, but with a focus on individual relevant statements, rather than whole chunks, consider using the `ChunkBasedSearch` retriever by itself. This retriever uses local connectivity to find relevant statements in other chunks belonging to the same source, therby broadening the scope of the search beyond tarditionl vector search.
+
+The `EntityBasedSearch` and `EntityNetworkSearch` retrievers provide different ways of utilising entity networks in a search. The `EntityBasedSearch` uses global connectivity to find statements from different sources connected by the same facts. It often produces more diverse results than other retrievers. The `EntityNetworkSearch` retriever converts an entity network (retrieved through graph traversal) into a set of similarity searches. This approach balances global and local connectivity.
 
 ### Reranking strategy
 
