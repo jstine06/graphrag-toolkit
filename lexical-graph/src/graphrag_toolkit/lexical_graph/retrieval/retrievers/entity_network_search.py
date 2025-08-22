@@ -97,11 +97,21 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
         start = time.time()
             
-        all_start_node_ids = self._get_node_ids(query_bundle)
-        
-        for entity_context_str in self.entity_contexts.context_strs:
-            all_start_node_ids.extend(self._get_node_ids(QueryBundle(query_str=entity_context_str)))
+        all_start_node_ids = []
 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.num_workers) as executor:
+
+            futures = [
+                executor.submit(self._get_node_ids, QueryBundle(query_str=entity_context_str))
+                for entity_context_str in self.entity_contexts.context_strs
+            ]
+            
+            executor.shutdown()
+
+            for future in futures:
+                for result in future.result():
+                    all_start_node_ids.append(result)
+        
         start_node_ids = list(set(all_start_node_ids))
 
         end = time.time()

@@ -3,7 +3,6 @@
 
 import logging
 import time
-import threading
 from typing import List, Dict
 from dateutil.parser import parse
 
@@ -53,8 +52,6 @@ class RerankStatements(ProcessorBase):
         self.reranking_model = reranking_model or GraphRAGConfig.reranking_model
         super().__init__(args, filter_config)
         self.reranking_source_metadata_fn = self.args.reranking_source_metadata_fn or default_reranking_source_metadata_fn
-        self.reranker_lock = threading.Lock()
-
 
     def _score_values_with_tfidf(self, values:List[str], query:QueryBundle, entity_contexts:EntityContexts):
         """
@@ -124,17 +121,15 @@ class RerankStatements(ProcessorBase):
             else QueryBundle(query_str=f'{query.query_str} (keywords: {extras})')
         )
 
-        with self.reranker_lock:
+        reranker = SentenceReranker(model=self.reranking_model, top_n=self.args.max_statements or len(values))
 
-            reranker = SentenceReranker(model=self.reranking_model, top_n=self.args.max_statements or len(values))
-
-            reranked_values = reranker.postprocess_nodes(
-                [
-                    NodeWithScore(node=TextNode(text=value), score=0.0)
-                    for value in values
-                ],
-                rank_query
-            )
+        reranked_values = reranker.postprocess_nodes(
+            [
+                NodeWithScore(node=TextNode(text=value), score=0.0)
+                for value in values
+            ],
+            rank_query
+        )
 
         return {
             reranked_value.text : reranked_value.score

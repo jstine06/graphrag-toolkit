@@ -89,7 +89,13 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
         if not self.entity_contexts:
             logger.warning(f'No entity ids available for entity based search')
 
-        return [entity_context.entities[0].entity.entityId for entity_context in self.entity_contexts.contexts] 
+        entity_ids = [
+            entity.entity.entityId 
+            for entity_context in self.entity_contexts.contexts
+            for entity in entity_context.entities
+        ]
+
+        return list(set(entity_ids)) 
     
     def _for_each_disjoint(self, values:List[Any], others:Optional[List[Any]]=None) -> Generator[Tuple[Any, List[Any]], None, None]:
         """
@@ -184,7 +190,7 @@ class EntityBasedSearch(TraversalBasedBaseRetriever):
             
         cypher = f'''// single entity-based graph search                            
         MATCH (:`__Entity__`{{{self.graph_store.node_id("entityId")}:$startId}})
-            -[:`__SUBJECT__`]->()
+            -[:`__SUBJECT__`]->()-[:`__NEXT__`*0..1]-()
             -[:`__SUPPORTS__`]->()
             -[:`__PREVIOUS__`*0..1]-(l)
         RETURN DISTINCT {self.graph_store.node_id("l.statementId")} AS l LIMIT $statementLimit'''

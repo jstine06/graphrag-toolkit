@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-import numpy
 from typing import List, Tuple, Optional, Any
 
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import RerankerMixin
