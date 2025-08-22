@@ -4,11 +4,11 @@
 
 You can customize traversal-based search operations to better suit your specific application, dataset, and query types. The following configuration options are available to help you optimize search performance:
 
-  - *Search results configuration* Adjust the number of search results and statements returned and set scoring thresholds to filter out low-quality statements and results
-  - *Retriever selection* Specify which retrievers to use when fetching information
-  - *Reranking strategy* Modify how statements and results are reranked and sorted
-  - *Graph and vector search parameters* Customize parameters that control graph queries and vector searches
-  - *Entity network context selection* Configure parameters used to select entity network contexts
+  - [**Search results configuration**](#search-results-configuration) Adjust the number of search results and statements returned and set scoring thresholds to filter out low-quality statements and results
+  - **Retriever selection** Specify which retrievers to use when fetching information
+  - **Reranking strategy** Modify how statements and results are reranked and sorted
+  - **Graph and vector search parameters** Customize parameters that control graph queries and vector searches
+  - **Entity network context selection** Configure parameters used to select entity network contexts
 
 These options allow you to fine-tune your search behavior based on your specific requirements and improve the relevance of returned results.
 
