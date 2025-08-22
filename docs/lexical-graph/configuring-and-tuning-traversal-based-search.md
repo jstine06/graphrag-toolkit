@@ -36,6 +36,16 @@ This parameter helps filter out lower-quality statements based on a percentage o
 
 Sets an absolute minimum score threshold for statements. Any statement with a score lower than this threshold will be removed from the results. The default value is `None`.
 
+#### Example
+
+```python
+query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
+    graph_store, 
+    vector_store,
+    statement_pruning_threshold=0.2
+)
+```
+
 ### Retriever selection
 
 ### Reranking strategy
