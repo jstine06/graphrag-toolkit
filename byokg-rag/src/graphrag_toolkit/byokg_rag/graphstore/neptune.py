@@ -394,20 +394,20 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
 
     def read_from_csv(self, csv_file=None, s3_path=None, format='CSV', iam_role=None):
         """
-        Upload a CSV file or folder of csv files to s3 and uses Neptune Analytics bulk import to read into the graph.
+        Upload a CSV file or folder of csv files to s3 and uses Neptune DB bulk loader to read into the graph.
 
         Args:
             csv_file (str): Path to the CSV file
             s3_path (str): Path to the S3 path to save the file(s) to
-            format(str): Str data format for import into s3. Default is 'CSV' or gremlin. Valid formats are 'NTRIPLES' for an RDF KG or 'CSV' or 'OPEN_CYPHER' for
-        property graphs
+            format(str): Str data format for import into s3. Default is 'CSV' or gremlin. Valid formats are 'CSV' or 'OPEN_CYPHER' for
+        property graphs. NTRIPLES and other formats for RDF graphs not yet supported.
             iam_role(str): IAM role that can be assumed by the bulk loader
             wait(bool): wait for Neptune DB bulk import to complete
 
         Returns:
         """
 
-        assert format in ['NTRIPLES', 'CSV', 'OPEN_CYPHER'], "format must be either 'NTRIPLES' or 'CSV' or 'OPEN_CYPHER'"
+        assert format in ['CSV', 'OPEN_CYPHER'], "format must be either or 'CSV' or 'OPEN_CYPHER'"
 
         if csv_file is not None:
             assert s3_path is not None, "s3 path should be passed with local csv path for data import"
@@ -438,7 +438,33 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
 
         response = self.neptune_data_client.get_propertygraph_summary()
         logger.info(response)
-        return response['payload']['graphSummary']
+        summary = response['payload']['graphSummary']
+        # quick effort at node label details, sample 100 nodes per type and get their distinct property keys
+        summary["nodeLabelDetails"] = {}
+        for ntype in summary["nodeLabels"]:
+            oc_query = f"""MATCH (n:{ntype})
+                           WITH n LIMIT 100
+                           UNWIND keys(n) AS key
+                           RETURN COLLECT(DISTINCT key) AS properties"""
+            response = self.execute_query(oc_query)
+            summary["nodeLabelDetails"][ntype] = response[0]
+        # quick effort at edge label details,
+        summary["edgeLabelDetails"] = {}
+        for etype in summary["edgeLabels"]:
+            oc_query = f"""MATCH (startNode)-[r:{etype}]->(endNode)
+                           WITH r LIMIT 100
+                           UNWIND keys(r) AS key
+                           RETURN COLLECT(DISTINCT key) AS properties"""
+            response = self.execute_query(oc_query)
+            summary["edgeLabelDetails"][etype] = response[0]
+
+        # expensive effort to get label triples
+        oc_query = """
+            MATCH (x)-[r]->(y)
+            RETURN DISTINCT head(labels(x)) AS `~from`, type(r) AS `~type`, head(labels(y)) AS `~to`"""
+        response = self.execute_query(oc_query)
+        summary["labelTriples"] = response
+        return summary
 
 
     def execute_query(self, cypher, parameters={}):
