@@ -281,7 +281,7 @@ class NeptuneAnalyticsGraphStore(BaseNeptuneGraphStore):
         """
         Return the property graph schema
 
-        :return:
+        :return: dict. The property graph schema
         """
         schema_cypher = '''CALL neptune.graph.pg_schema() 
                             YIELD schema
@@ -431,9 +431,9 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
 
     def get_schema(self):
         """
-        Return the property graph summary in place of schema for now
+        Return the property graph summary and some additional queries to get nodeLabelDetails, edgeLabelDetails and labelTriples
 
-        :return:
+        :return: dict The property graph schema
         """
 
         response = self.neptune_data_client.get_propertygraph_summary()
@@ -448,7 +448,7 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
                            RETURN COLLECT(DISTINCT key) AS properties"""
             response = self.execute_query(oc_query)
             summary["nodeLabelDetails"][ntype] = response[0]
-        # quick effort at edge label details,
+        # quick effort at edge label details
         summary["edgeLabelDetails"] = {}
         for etype in summary["edgeLabels"]:
             oc_query = f"""MATCH (startNode)-[r:{etype}]->(endNode)
@@ -458,7 +458,8 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
             response = self.execute_query(oc_query)
             summary["edgeLabelDetails"][etype] = response[0]
 
-        # expensive effort to get label triples
+        # expensive effort to get label triples.not a big deal since get_schema is called just once usually.
+        # @TODO optimize
         oc_query = """
             MATCH (x)-[r]->(y)
             RETURN DISTINCT head(labels(x)) AS `~from`, type(r) AS `~type`, head(labels(y)) AS `~to`"""
