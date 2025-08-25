@@ -10,85 +10,7 @@ from ..indexing import NeptuneAnalyticsGraphStoreIndex, Embedding
 
 logger = logging.getLogger(__name__)
 
-class NeptuneAnalyticsGraphStore(GraphStore):
-    """
-    GraphStore for interacting with NeptuneAnalytics Graph
-    """
-
-    def __init__(self, graph_identifier, region=None):
-        """
-
-        Create a NeptuneAnalytics backed GraphStore. The GraphStore is a wrapper for interacting with the
-        Neptune Analytics graph object with that graph_id that corresponds to graph_identifier.
-
-        :param graph_identifier: Str. An existing graph identifier (required)
-        :param region: Str AWS region
-        """
-
-
-        if region is None:
-            self.__detect_region()
-        else:
-            self.region = region
-        assert self.region is not None, "region needs to be passed in or inferrable from current environment"
-        self.session = boto3.Session(region_name=self.region)
-        self.neptune_client = self.session.client('neptune-graph', region_name=self.region)
-        self.s3_client = self.session.client('s3', region_name=self.region)
-
-        self.neptune_graph_id = self.__attach_existing_neptune_graph(graph_identifier)
-        self.node_type_to_property_mapping = {}
-
-    def __detect_region(self):
-        easy_checks = [
-            os.environ.get('AWS_REGION'),
-            os.environ.get('AWS_DEFAULT_REGION'),
-            boto3.DEFAULT_SESSION.region_name if boto3.DEFAULT_SESSION else None,
-            boto3.Session().region_name,
-        ]
-        for region in easy_checks:
-            if region:
-                self.region = region
-                return
-
-    def __attach_existing_neptune_graph(self, neptune_graph_id):
-        assert neptune_graph_id is not None, "graph_identifier is required"
-        response = self.neptune_client.get_graph(graphIdentifier=neptune_graph_id)
-        return response['id']
-
-    def read_from_csv(self, csv_file=None, s3_path=None, format='CSV'):
-        """
-        Upload a CSV file or folder of csv files to s3 and uses Neptune Analytics bulk import to read into the graph.
-
-        Args:
-            csv_file (str): Path to the CSV file
-            s3_path (str): Path to the S3 path to save the file(s) to
-            format(str): Str data format for import into s3. Default is 'CSV' or gremlin. Valid formats are 'NTRIPLES' for an RDF KG or 'CSV' or 'OPEN_CYPHER' for
-        property graphs
-
-        Returns:
-            dict: The constructed knowledge graph
-        """
-
-        assert format in ['NTRIPLES', 'CSV', 'OPEN_CYPHER'], "format must be either 'NTRIPLES' or 'CSV' or 'OPEN_CYPHER'"
-
-        if csv_file is not None:
-            assert s3_path is not None, "s3 path should be passed with local csv path for data import"
-            self._upload_to_s3(s3_path, csv_file)
-
-        logger.info(f'Loading data from source : {s3_path} into graph: {self.neptune_graph_id}')
-
-        load_cypher = f'''CALL neptune.load(
-                    {{
-                        source: '{s3_path}',
-                        region: '{self.region}',
-                        format: '{format}',
-                        failOnError: false,
-                        concurrency: 16
-                    }}
-                )'''
-        response = self.execute_query(load_cypher)
-        logger.info(response)
-
+class BaseNeptuneGraphStore(GraphStore):
     def _upload_to_s3(self, s3_path, local_path=None, file_contents=None):
         path = urlparse(s3_path, allow_fragments=False)
         bucket = path.netloc
@@ -141,31 +63,6 @@ class NeptuneAnalyticsGraphStore(GraphStore):
     def get_text_repr_prop(self, node_label):
         """ get text representation property for a node label"""
         return self.node_type_to_property_mapping[node_label]
-
-    def execute_query(self, cypher, parameters={}):
-        logger.info(f"GraphQuery::{cypher}")
-        response =  self.neptune_client.execute_query(
-            graphIdentifier=self.neptune_graph_id,
-            queryString=cypher,
-            parameters=parameters,
-            language='OPEN_CYPHER'
-        )
-        return json.loads(response['payload'].read())['results']
-
-    def get_schema(self):
-        """
-        Return the property graph schema
-
-        :return:
-        """
-        schema_cypher = '''CALL neptune.graph.pg_schema() 
-                            YIELD schema
-                            RETURN schema
-                        '''
-        response = self.execute_query(schema_cypher)
-        logger.info(response)
-        return response
-
     def nodes(self, node_type=None):
         """
         Return a list of all node_ids or of all node types in the graph.
@@ -302,6 +199,108 @@ class NeptuneAnalyticsGraphStore(GraphStore):
             "opencypher"
         ]
 
+
+class NeptuneAnalyticsGraphStore(BaseNeptuneGraphStore):
+    """
+    GraphStore for interacting with NeptuneAnalytics Graph
+    """
+
+    def __init__(self, graph_identifier, region=None):
+        """
+
+        Create a NeptuneAnalytics backed GraphStore. The GraphStore is a wrapper for interacting with the
+        Neptune Analytics graph object with that graph_id that corresponds to graph_identifier.
+
+        :param graph_identifier: Str. An existing graph identifier (required)
+        :param region: Str AWS region
+        """
+
+
+        if region is None:
+            self.__detect_region()
+        else:
+            self.region = region
+        assert self.region is not None, "region needs to be passed in or inferrable from current environment"
+        self.session = boto3.Session(region_name=self.region)
+        self.neptune_client = self.session.client('neptune-graph', region_name=self.region)
+        self.s3_client = self.session.client('s3', region_name=self.region)
+
+        self.neptune_graph_id = self.__attach_existing_neptune_graph(graph_identifier)
+        self.node_type_to_property_mapping = {}
+
+    def __detect_region(self):
+        easy_checks = [
+            os.environ.get('AWS_REGION'),
+            os.environ.get('AWS_DEFAULT_REGION'),
+            boto3.DEFAULT_SESSION.region_name if boto3.DEFAULT_SESSION else None,
+            boto3.Session().region_name,
+        ]
+        for region in easy_checks:
+            if region:
+                self.region = region
+                return
+
+    def __attach_existing_neptune_graph(self, neptune_graph_id):
+        assert neptune_graph_id is not None, "graph_identifier is required"
+        response = self.neptune_client.get_graph(graphIdentifier=neptune_graph_id)
+        return response['id']
+
+    def read_from_csv(self, csv_file=None, s3_path=None, format='CSV'):
+        """
+        Upload a CSV file or folder of csv files to s3 and uses Neptune Analytics bulk import to read into the graph.
+
+        Args:
+            csv_file (str): Path to the CSV file
+            s3_path (str): Path to the S3 path to save the file(s) to
+            format(str): Str data format for import into s3. Default is 'CSV' or gremlin. Valid formats are 'NTRIPLES' for an RDF KG or 'CSV' or 'OPEN_CYPHER' for
+        property graphs
+
+        """
+
+        assert format in ['NTRIPLES', 'CSV', 'OPEN_CYPHER'], "format must be either 'NTRIPLES' or 'CSV' or 'OPEN_CYPHER'"
+
+        if csv_file is not None:
+            assert s3_path is not None, "s3 path should be passed with local csv path for data import"
+            self._upload_to_s3(s3_path, csv_file)
+
+        logger.info(f'Loading data from source : {s3_path} into graph: {self.neptune_graph_id}')
+
+        load_cypher = f'''CALL neptune.load(
+                    {{
+                        source: '{s3_path}',
+                        region: '{self.region}',
+                        format: '{format}',
+                        failOnError: false,
+                        concurrency: 16
+                    }}
+                )'''
+        response = self.execute_query(load_cypher)
+        logger.info(response)
+
+    def get_schema(self):
+        """
+        Return the property graph schema
+
+        :return: dict. The property graph schema
+        """
+        schema_cypher = '''CALL neptune.graph.pg_schema() 
+                            YIELD schema
+                            RETURN schema
+                        '''
+        response = self.execute_query(schema_cypher)
+        logger.info(response)
+        return response
+
+    def execute_query(self, cypher, parameters={}):
+        logger.info("GraphQuery::", cypher)
+        response =  self.neptune_client.execute_query(
+            graphIdentifier=self.neptune_graph_id,
+            queryString=cypher,
+            parameters=parameters,
+            language='OPEN_CYPHER'
+        )
+        return json.loads(response['payload'].read())['results']
+
     def as_embedding_index(self, embedding:Embedding=None, node_embedding_text_props=None, load=True, embedding_s3_save_location=None):
         """
 
@@ -370,3 +369,109 @@ class NeptuneAnalyticsGraphStore(GraphStore):
                 texts_to_embed.extend(node_texts_for_embed)
 
         return ids, texts_to_embed
+
+class NeptuneDBGraphStore(BaseNeptuneGraphStore):
+    """
+    Graph store for interacting with a Neptune DB cluster
+    """
+    def __init__(self, endpoint_url, region=None):
+        """
+
+        Create a Neptune Database backed GraphStore. The GraphStore is a wrapper for interacting with the
+        Neptune DB cluster.
+
+        :param endpoint_url: Str. The endpoint url of the Neptune DB cluster in the format https://{cluster_endpoint}:{port}
+        :param region: Str AWS region
+        """
+        self.region = region
+        assert self.region is not None, "region needs to be passed in or inferrable from current environment"
+        self.session = boto3.Session(region_name=self.region)
+        self.endpoint_url = endpoint_url
+        self.neptune_data_client = self.session.client('neptunedata', region_name=self.region, endpoint_url = self.endpoint_url)
+        self.s3_client = self.session.client('s3', region_name=self.region)
+        self.node_type_to_property_mapping = {}
+
+
+    def read_from_csv(self, csv_file=None, s3_path=None, format='CSV', iam_role=None):
+        """
+        Upload a CSV file or folder of csv files to s3 and uses Neptune DB bulk loader to read into the graph.
+
+        Args:
+            csv_file (str): Path to the CSV file
+            s3_path (str): Path to the S3 path to save the file(s) to
+            format(str): Str data format for import into s3. Default is 'CSV' or gremlin. Valid formats are 'CSV' or 'OPEN_CYPHER' for
+        property graphs. NTRIPLES and other formats for RDF graphs not yet supported.
+            iam_role(str): IAM role that can be assumed by the bulk loader
+            wait(bool): wait for Neptune DB bulk import to complete
+
+        Returns:
+        """
+
+        assert format in ['CSV', 'OPEN_CYPHER'], "format must be either or 'CSV' or 'OPEN_CYPHER'"
+
+        if csv_file is not None:
+            assert s3_path is not None, "s3 path should be passed with local csv path for data import"
+            self._upload_to_s3(s3_path, csv_file)
+
+        logger.info(f'Loading data from source : {s3_path} into graph: {self.endpoint_url}')
+
+        load_args = dict(
+            source=s3_path,
+            format=format.lower(),
+            s3BucketRegion=self.region,
+            iamRoleArn=iam_role,
+            mode='NEW',
+            failOnError=False,
+            parallelism='OVERSUBSCRIBE'
+        )
+
+        response = self.neptune_data_client.start_loader_job(**load_args)
+        logger.info(response)
+
+
+    def get_schema(self):
+        """
+        Return the property graph summary and some additional queries to get nodeLabelDetails, edgeLabelDetails and labelTriples
+
+        :return: dict The property graph schema
+        """
+
+        response = self.neptune_data_client.get_propertygraph_summary()
+        logger.info(response)
+        summary = response['payload']['graphSummary']
+        # quick effort at node label details, sample 100 nodes per type and get their distinct property keys
+        summary["nodeLabelDetails"] = {}
+        for ntype in summary["nodeLabels"]:
+            oc_query = f"""MATCH (n:{ntype})
+                           WITH n LIMIT 100
+                           UNWIND keys(n) AS key
+                           RETURN COLLECT(DISTINCT key) AS properties"""
+            response = self.execute_query(oc_query)
+            summary["nodeLabelDetails"][ntype] = response[0]
+        # quick effort at edge label details
+        summary["edgeLabelDetails"] = {}
+        for etype in summary["edgeLabels"]:
+            oc_query = f"""MATCH (startNode)-[r:{etype}]->(endNode)
+                           WITH r LIMIT 100
+                           UNWIND keys(r) AS key
+                           RETURN COLLECT(DISTINCT key) AS properties"""
+            response = self.execute_query(oc_query)
+            summary["edgeLabelDetails"][etype] = response[0]
+
+        # expensive effort to get label triples.not a big deal since get_schema is called just once usually.
+        # @TODO optimize
+        oc_query = """
+            MATCH (x)-[r]->(y)
+            RETURN DISTINCT head(labels(x)) AS `~from`, type(r) AS `~type`, head(labels(y)) AS `~to`"""
+        response = self.execute_query(oc_query)
+        summary["labelTriples"] = response
+        return summary
+
+
+    def execute_query(self, cypher, parameters={}):
+        logger.info("GraphQuery::", cypher)
+        response = self.neptune_data_client.execute_open_cypher_query(
+            openCypherQuery=cypher,
+            parameters=json.dumps(parameters)
+        )
+        return response['results']
