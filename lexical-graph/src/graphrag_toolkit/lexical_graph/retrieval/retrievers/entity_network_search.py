@@ -82,17 +82,6 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
         statement_ids = [r['l'] for r in results]
 
         return self.get_statements_by_topic_and_source(statement_ids)
-
-    def _get_entity_context_strings(self) -> List[str]:
-
-        context_strs = [
-            ', '.join([entity.entity.value.lower() for entity in entity_context])
-            for entity_context in self.entity_contexts
-        ]
-    
-        logger.debug(f'context_strs: {context_strs}')
-
-        return context_strs
     
     def _get_node_ids(self, query_bundle: QueryBundle) -> List[str]:
 
@@ -108,19 +97,27 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
         start = time.time()
             
-        all_start_node_ids = self._get_node_ids(query_bundle)
+        all_start_node_ids = []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.num_workers) as executor:
+
+            futures = [
+                executor.submit(self._get_node_ids, QueryBundle(query_str=entity_context_str))
+                for entity_context_str in self.entity_contexts.context_strs
+            ]
+            
+            executor.shutdown()
+
+            for future in futures:
+                for result in future.result():
+                    all_start_node_ids.append(result)
         
-        entity_context_strs = self._get_entity_context_strings()
-
-        for entity_context_str in entity_context_strs:
-            all_start_node_ids.extend(self._get_node_ids(QueryBundle(query_str=entity_context_str)))
-
         start_node_ids = list(set(all_start_node_ids))
 
         end = time.time()
         duration_ms = (end-start) * 1000
 
-        logger.debug(f'start_node_ids: [{self.index_name}] {start_node_ids} ({duration_ms:.2f}ms)')
+        logger.debug(f'start_node_ids: [index: {self.index_name}, ids: {start_node_ids}] ({duration_ms:.2f}ms)')
         
         return start_node_ids
 

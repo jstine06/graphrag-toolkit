@@ -6,9 +6,8 @@ from typing import List, Dict
 
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.graph.graph_utils import node_result
-from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity
+from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity, EntityContexts, EntityContext
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorArgs
-from graphrag_toolkit.lexical_graph.utils.tfidf_utils import score_values
 
 from llama_index.core.schema import QueryBundle
 
@@ -196,7 +195,11 @@ class EntityContextProvider():
 
         logger.debug(f'all_contexts: {all_contexts}')
 
-        contexts = all_contexts[:self.args.ec_max_contexts]
+        deduped_contexts = self.dedup(all_contexts)
+
+        logger.debug(f'deduped_contexts: {deduped_contexts}')
+
+        contexts = deduped_contexts[:self.args.ec_max_contexts]
 
         end = time.time()
         duration_ms = (end-start) * 1000
@@ -204,9 +207,38 @@ class EntityContextProvider():
         logger.debug(f'contexts: {contexts} ({duration_ms:.2f} ms)')
 
         return contexts
+    
+    def dedup(self,  contexts:List[List[ScoredEntity]]) ->  List[List[ScoredEntity]]:
+
+        context_map = {
+            ','.join([e.entity.value.lower() for e in context]):context
+            for context in contexts
+        }
+
+        context_keys = sorted(list(context_map.keys()), key=len)
+        
+        surviving_contexts = {}
+
+        for idx, context_key in enumerate(context_keys):
+            keep = True
+            for other_context_key in context_keys[idx+1:]:
+                if other_context_key.startswith(context_key):
+                    keep = False
+                    break
+            if keep:
+                surviving_contexts[context_key] = context_map[context_key]
+                
+        deduped_contexts = []
+
+        for k in context_map.keys():
+            context = surviving_contexts.pop(k, None)
+            if context:
+                deduped_contexts.append(context)
+
+        return deduped_contexts
 
                         
-    def get_entity_contexts(self, entities:List[ScoredEntity], query_bundle:QueryBundle)  -> List[List[ScoredEntity]]:
+    def get_entity_contexts(self, entities:List[ScoredEntity], query_bundle:QueryBundle)  -> EntityContexts:
 
         start = time.time()
 
@@ -237,6 +269,5 @@ class EntityContextProvider():
             str([e.entity.value for e in context])
             for context in entity_contexts
         ]}""")
-    
-       
-        return entity_contexts
+
+        return EntityContexts(contexts=[EntityContext(entities=entities) for entities in entity_contexts])

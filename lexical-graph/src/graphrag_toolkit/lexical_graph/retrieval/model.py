@@ -172,6 +172,24 @@ class ScoredEntity(BaseModel):
     score:float
     reranking_score:Optional[float]=0.0
 
+class EntityContext(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    entities: List[ScoredEntity]=[]
+
+class EntityContexts(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    contexts: List[EntityContext]=[]
+
+    @property
+    def context_strs(self):
+        return [
+            ', '.join([entity.entity.value.lower() for entity in entity_context.entities])
+            for entity_context in self.contexts
+        ]
+
+
 class SearchResultCollection(BaseModel):
     """
     Represents a collection of search results and associated scored entities.
@@ -191,7 +209,7 @@ class SearchResultCollection(BaseModel):
     model_config = ConfigDict(strict=True)
 
     results: List[SearchResult]=[]
-    entity_contexts: List[List[ScoredEntity]]=[]
+    entity_contexts: EntityContexts
 
     def add_search_result(self, result:SearchResult):
         """

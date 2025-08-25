@@ -92,7 +92,7 @@ class ProcessorBase(object):
 
         for i, search_result in enumerate(search_results.results):
             return_result = search_result_handler(i, search_result, **kwargs)
-            if return_result and return_result.topics or return_result.statements:
+            if return_result and (return_result.topics or return_result.statements):
                 surviving_search_results.append(return_result)
 
         return search_results.with_new_results(results=surviving_search_results)

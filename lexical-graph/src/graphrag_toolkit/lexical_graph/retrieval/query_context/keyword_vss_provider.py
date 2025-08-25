@@ -50,8 +50,9 @@ class KeywordVSSProvider(KeywordProviderBase):
         self.graph_store = graph_store
         self.vector_store = vector_store
         self.filter_config = filter_config
+
         self.index_name = 'topic' if not isinstance(vector_store.get_index('topic'), DummyVectorIndex) else 'chunk'
-       
+
         self.llm = llm if llm and isinstance(llm, LLMCache) else LLMCache(
             llm=llm or GraphRAGConfig.extraction_llm,
             enable_cache=GraphRAGConfig.enable_cache
@@ -117,7 +118,6 @@ class KeywordVSSProvider(KeywordProviderBase):
             results = self.graph_store.execute_query(cypher, parameters)
 
             return '\n'.join(format_statement(r) for r in results)
-
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.num_workers) as executor:
 

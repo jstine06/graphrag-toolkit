@@ -12,7 +12,7 @@ from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.vector.vector_store import VectorStore
 from graphrag_toolkit.lexical_graph.retrieval.query_context import KeywordProvider, KeywordVSSProvider, KeywordNLPProvider, KeywordProviderMode, PassThruKeywordProvider
 from graphrag_toolkit.lexical_graph.retrieval.query_context import EntityProvider, EntityVSSProvider, EntityContextProvider
-from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, SearchResult, ScoredEntity
+from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, SearchResult, ScoredEntity, EntityContexts
 from graphrag_toolkit.lexical_graph.retrieval.processors import *
 
 from llama_index.core.base.base_retriever import BaseRetriever
@@ -79,7 +79,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
                  processor_args:Optional[ProcessorArgs]=None,
                  processors:Optional[List[Type[ProcessorBase]]]=None,
                  formatting_processors:Optional[List[Type[ProcessorBase]]]=None,
-                 entity_contexts:Optional[List[List[ScoredEntity]]]=None,
+                 entity_contexts:Optional[EntityContexts]=None,
                  filter_config:FilterConfig=None,
                  **kwargs):
         """
@@ -120,7 +120,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         self.vector_store = vector_store
         self.processors = processors if processors is not None else DEFAULT_PROCESSORS
         self.formatting_processors = formatting_processors if formatting_processors is not None else DEFAULT_FORMATTING_PROCESSORS
-        self.entity_contexts:List[List[ScoredEntity]] = entity_contexts or []
+        self.entity_contexts:EntityContexts = entity_contexts or EntityContexts()
         self.filter_config = filter_config or FilterConfig()
         
     def get_statements_by_topic_and_source(self, statement_ids):
@@ -189,11 +189,9 @@ class TraversalBasedBaseRetriever(BaseRetriever):
     
     def _init_entity_contexts(self, query_bundle: QueryBundle) -> List[str]:
 
-        if not self.entity_contexts:
+        if not self.entity_contexts.contexts:
 
             start = time.time()
-
-            self.entity_contexts = []
 
             if self.args.ec_max_contexts < 1:
                 logger.debug(f'Ignoring retrieval of entity contexts because ec_max_contexts is {self.args.ec_max_contexts}')
@@ -222,15 +220,15 @@ class TraversalBasedBaseRetriever(BaseRetriever):
             entity_context_provider = EntityContextProvider(self.graph_store, self.args)
 
             keywords = keyword_provider.get_keywords(query_bundle)
-            entities = entity_provider.get_entities(keywords)
+            entities = entity_provider.get_entities(keywords, query_bundle)
             entity_contexts = entity_context_provider.get_entity_contexts(entities, query_bundle)
 
             end = time.time()
             duration_ms = (end-start) * 1000
 
-            logger.debug(f'Retrieved {len(entity_contexts)} entity contexts ({duration_ms:.2f}ms)')
+            logger.debug(f'Retrieved {len(entity_contexts.contexts)} entity contexts ({duration_ms:.2f}ms)')
 
-            self.entity_contexts.extend(entity_contexts)
+            self.entity_contexts.contexts.extend(entity_contexts.contexts)
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """
@@ -274,10 +272,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         logger.debug(f'[{type(self).__name__}] Retrieval: {retrieval_ms:.2f}ms')
         logger.debug(f'[{type(self).__name__}] Processing: {processing_ms:.2f}ms')
 
-        entity_context_strs = [
-            ', '.join([entity.entity.value.lower() for entity in entity_context])
-            for entity_context in formatted_search_results.entity_contexts
-        ]
+        entity_contexts = formatted_search_results.entity_contexts.model_dump()
 
         return [
             NodeWithScore(
@@ -285,7 +280,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
                     text=formatted_search_result.model_dump_json(exclude_none=True, exclude_defaults=True, indent=2),
                     metadata={
                         'result': search_result.model_dump(exclude_none=True, exclude_unset=True, exclude_defaults=True),
-                        'entity_contexts': entity_context_strs
+                        'entity_contexts': entity_contexts
                     }
                 ), 
                 score=search_result.score

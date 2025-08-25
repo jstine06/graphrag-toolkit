@@ -59,8 +59,8 @@ class GraphSummary():
             tenant_id
         )
         
-        cypher = '''MATCH (n:`__Entity__`)-[r:`__RELATION__`]->()
-        WITH n, sum(r.count) AS score ORDER BY score DESC LIMIT 100
+        cypher = '''MATCH (n:`__Entity__`)-[r:`__SUBJECT__`]->()
+        WITH n, count(r) AS score ORDER BY score DESC LIMIT 100
         RETURN n.value + ' [' + n.class + ']' as entity'''
         
         results = graph_store.execute_query(cypher)

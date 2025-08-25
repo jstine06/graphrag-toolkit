@@ -13,6 +13,7 @@ from graphrag_toolkit.lexical_graph.tenant_id import TenantIdType, to_tenant_id
 from graphrag_toolkit.lexical_graph.config import GraphRAGConfig
 from graphrag_toolkit.lexical_graph.utils import LLMCache, LLMCacheType
 from graphrag_toolkit.lexical_graph.retrieval.post_processors.bedrock_context_format import BedrockContextFormat
+from graphrag_toolkit.lexical_graph.retrieval.model import EntityContexts
 from graphrag_toolkit.lexical_graph.retrieval.retrievers import CompositeTraversalBasedRetriever, SemanticGuidedRetriever, QueryModeRetriever
 from graphrag_toolkit.lexical_graph.retrieval.retrievers import StatementCosineSimilaritySearch, KeywordRankingSearch, SemanticBeamGraphSearch
 from graphrag_toolkit.lexical_graph.retrieval.retrievers import WeightedTraversalBasedRetrieverType, SemanticGuidedRetrieverType
@@ -424,7 +425,13 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
         if not search_results:
             return []
         
-        return search_results[0].metadata.get('entity_contexts', [])
+        contexts_dump = search_results[0].metadata.get('entity_contexts', []) 
+
+        if not contexts_dump:
+            return []
+ 
+        return EntityContexts.model_validate(contexts_dump).context_strs
+
 
     def retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """

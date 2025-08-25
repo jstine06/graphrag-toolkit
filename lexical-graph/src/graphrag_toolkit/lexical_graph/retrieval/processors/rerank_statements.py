@@ -8,11 +8,11 @@ from dateutil.parser import parse
 
 from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph import GraphRAGConfig
-from graphrag_toolkit.lexical_graph.utils.tfidf_utils import score_values
+from graphrag_toolkit.lexical_graph.utils.reranker_utils import score_values_with_tfidf
 from graphrag_toolkit.lexical_graph.retrieval.model import Source
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorBase, ProcessorArgs
 from graphrag_toolkit.lexical_graph.retrieval.post_processors import SentenceReranker
-from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, SearchResult, Topic, ScoredEntity
+from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, SearchResult, Topic, ScoredEntity, EntityContexts
 
 from llama_index.core.schema import QueryBundle, NodeWithScore, TextNode
 from llama_index.core.node_parser import TokenTextSplitter
@@ -54,7 +54,7 @@ class RerankStatements(ProcessorBase):
         self.reranking_source_metadata_fn = self.args.reranking_source_metadata_fn or default_reranking_source_metadata_fn
 
 
-    def _score_values_with_tfidf(self, values:List[str], query:QueryBundle, entity_contexts:List[List[ScoredEntity]]):
+    def _score_values_with_tfidf(self, values:List[str], query:QueryBundle, entity_contexts:EntityContexts):
         """
         Compute a ranking of provided text values using the TF-IDF (Term Frequency-Inverse Document Frequency) algorithm.
         The method reranks the input values based on their relevance to the provided query and any additional entities.
@@ -77,10 +77,7 @@ class RerankStatements(ProcessorBase):
 
         match_values = splitter.split_text(query.query_str.lower())
         
-        extras = [
-            ', '.join([entity.entity.value.lower() for entity in entity_context])
-            for entity_context in entity_contexts
-        ]
+        extras = entity_contexts.context_strs
 
         match_values = [m for m in match_values if m not in extras] # order in entity context takes precedence
         num_primary_match_values = len(match_values) if not extras else len(match_values) + max(int(len(extras)/2), 1) # first entity contexts are important as match values
@@ -90,7 +87,7 @@ class RerankStatements(ProcessorBase):
         logger.debug(f'match_values: {match_values}')
         logger.debug(f'num_primary_match_values: {num_primary_match_values}')
 
-        scored_values = score_values(
+        scored_values = score_values_with_tfidf(
             values, 
             match_values, 
             self.args.max_statements, 
@@ -100,7 +97,7 @@ class RerankStatements(ProcessorBase):
         return scored_values
  
 
-    def _score_values(self, values:List[str], query:QueryBundle, entity_contexts:List[List[ScoredEntity]]) -> Dict[str, float]:
+    def _score_values(self, values:List[str], query:QueryBundle, entity_contexts:EntityContexts) -> Dict[str, float]:
         """
         Reranks a list of values based on their relevance to a specified query and associated entities using a
         SentenceReranker model. The method processes the input values, constructs a query bundle considering the
@@ -117,18 +114,15 @@ class RerankStatements(ProcessorBase):
         """
         logger.debug('Reranking with SentenceReranker')
 
-        reranker = SentenceReranker(model=self.reranking_model, top_n=self.args.max_statements or len(values))
-
-        extras = ', '.join([
-            ', '.join([entity.entity.value.lower() for entity in entity_context])
-            for entity_context in entity_contexts
-        ])
+        extras = ', '.join(entity_contexts.context_strs)
 
         rank_query = (
             query 
             if not extras 
             else QueryBundle(query_str=f'{query.query_str} (keywords: {extras})')
         )
+
+        reranker = SentenceReranker(model=self.reranking_model, top_n=self.args.max_statements or len(values))
 
         reranked_values = reranker.postprocess_nodes(
             [
