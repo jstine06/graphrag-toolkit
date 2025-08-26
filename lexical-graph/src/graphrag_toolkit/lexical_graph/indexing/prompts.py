@@ -128,6 +128,7 @@ Try to capture as much information from the text as possible without sacrificing
    4. A list of Preferred Entity Classifications is included below. Choose the most specific classification from this list in preference to creating a new classification.
    5. Ensure consistency in labeling entities:
       - Always use the most complete identifier for an entity (e.g., 'John Doe' instead of 'he' or 'John').
+      - Avoid using determiners, such as 'A' or 'The', at the beginnibng of identifiers.
       - Maintain entity consistency throughout the knowledge graph by resolving coreferences.
       - If an entity is referred to by different names or pronouns, always use the most complete identifier.
       - If the identifier is an acronym, and you recognize the acronym, use the entity's full name instead of the acronym. DO NOT put the acronym in parentheses after the full name. 
