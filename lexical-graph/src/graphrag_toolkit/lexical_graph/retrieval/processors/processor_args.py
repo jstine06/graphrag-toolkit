@@ -82,9 +82,10 @@ class ProcessorArgs():
         self.ec_max_score_factor = kwargs.get('ec_max_score_factor', 3)
         self.ec_min_score_factor = kwargs.get('ec_min_score_factor', 0.25)
         self.ec_max_contexts = kwargs.get('ec_max_contexts', 2)
+        self.ec_max_depth = kwargs.get('ec_max_depth', 2)
         
 
-  
+
     def to_dict(self, new_args:Dict[str, Any]={}):
         """
         Transforms the instance attributes and additional arguments into a single dictionary.

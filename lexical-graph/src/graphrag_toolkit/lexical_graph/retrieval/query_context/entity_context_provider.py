@@ -23,6 +23,8 @@ class EntityContextProvider():
     def _get_entity_id_context_tree(self, entities:List[ScoredEntity]) -> Dict[str, Dict]:
         
         start = time.time()
+
+        max_num_neighbours = self.args.ec_max_depth + 1
         
         entity_ids = [entity.entity.entityId for entity in entities if entity.score > 0] 
         exclude_entity_ids = set(entity_ids)
@@ -36,7 +38,7 @@ class EntityContextProvider():
             
             current_entity_id_contexts = { entity_id: entity_id_context  }
 
-            for num_neighbours in range (3, 1, -1):
+            for num_neighbours in range (max_num_neighbours, 1, -1):
 
                 cypher = f"""
                 // get next level in tree

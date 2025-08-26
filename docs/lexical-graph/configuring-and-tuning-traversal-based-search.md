@@ -1,4 +1,21 @@
+[[Home](./)]
+
 ## Configuring and Tuning Traversal-Based Search
+
+### Topics
+
+  - [Overview](#overview)
+  - [Search results configuration](#search-results-configuration)
+    - [max_search_results](#max_search_results)
+    - [max_statements_per_topic](#max_statements_per_topic)
+    - [max_statements](#max_statements)
+    - [statement_pruning_factor](#statement_pruning_factor)
+    - [statement_pruning_threshold](#statement_pruning_threshold)
+    - [When to use search results configuration](#when-to-use-search-results-configuration)
+  - [Retriever selection](#retriever-selection)
+    - [retrievers](#retrievers)
+    - [When to use different retrievers](#when-to-use-different-retrievers)
+   
 
 ### Overview
 
@@ -11,6 +28,7 @@ You can customize traversal-based search operations to better suit your specific
   - **Entity network context selection** Configure parameters used to select entity network contexts
 
 These options allow you to fine-tune your search behavior based on your specific requirements and improve the relevance of returned results.
+___
 
 ### Search results configuration
 
@@ -54,21 +72,19 @@ Each search result comprises one or more statements belonging to a single topic 
 
 When increasing the number of statements (either overall or per topic), you should consider increasing the statement pruning parameters as well. This helps ensure that even with larger result sets, you're still getting highly relevant statements rather than less relevant information.
 
+___
+
 ### Retriever selection
 
-You can configure the traversal-based search with up to three different retrievers:
+You can use the `retrievers` parameter to configure traversal-based search with up to three different retrievers.
 
-##### `ChunkBasedSearch` 
+#####  `retrievers`
 
-This retriever uses a vector similarity search to find information that is similar to the original query. The retriever first finds relevant chunks using vector similarity search. From these chunks, the retriever traverses topics, statements, and facts. Chunk-based search tends to return a narrowly-scoped set of results based on the statement and fact neighbourhoods of chunks that match the original query.
+Accepts an array of retriever class names. Choose from:
 
-##### `EntityBasedSearch`
-
-This retriever uses as its starting points the entities in an entity network context. From these entities, the retriever traverses facts, statements and topics. Entity-based search tends to return a broadly-scoped set of results, based on the neighbourhoods of individual entities and the facts that connect entities.
-
-##### `EntityNetworkSearch` 
-
-This retriever uses textual transcriptions of an entity network context to drive vector searches for information that is dissimilar to the original query but nonetheless structurally relevant for creating an accurate and full response. These vector searches return chunks that are similar to 'something different from the question being asked'. From these chunks, the retriever traverses topics, statements, and facts to explore the structurally relevant space of dissimilar content.
+  - **`ChunkBasedSearch`** This retriever uses a vector similarity search to find information that is similar to the original query. The retriever first finds relevant chunks using vector similarity search. From these chunks, the retriever traverses topics, statements, and facts. Chunk-based search tends to return a narrowly-scoped set of results based on the statement and fact neighbourhoods of chunks that match the original query.
+  - **`EntityBasedSearch`** This retriever uses as its starting points the entities in an entity network context. From these entities, the retriever traverses facts, statements and topics. Entity-based search tends to return a broadly-scoped set of results, based on the neighbourhoods of individual entities and the facts that connect entities.
+  - **`EntityNetworkSearch`** This retriever uses textual transcriptions of an entity network context to drive vector searches for information that is dissimilar to the original query but nonetheless structurally relevant for creating an accurate and full response. These vector searches return chunks that are similar to 'something different from the question being asked'. From these chunks, the retriever traverses topics, statements, and facts to explore the structurally relevant space of dissimilar content.
 	
 #### Example
 
@@ -98,6 +114,8 @@ The `EntityBasedSearch` and `EntityNetworkSearch` retrievers provide different w
 
   - The `EntityBasedSearch` uses global connectivity to find statements from different sources connected by the same facts. It often produces more diverse results than other retrievers. 
    - The `EntityNetworkSearch` retriever converts an entity network (retrieved through graph traversal) into a set of similarity searches. This approach balances global and local connectivity.
+
+___
 
 ### Reranking strategy
 
@@ -154,6 +172,10 @@ After making these adjustments, review the results returned by the `retrieve()` 
   - Adjusting pruning thresholds
   - Configuring entity network contexts
 
+___
+
 ### Graph and vector search parameters
+
+___
 
 ### Entity network context selection
