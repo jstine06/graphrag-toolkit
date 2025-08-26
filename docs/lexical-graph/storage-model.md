@@ -6,6 +6,7 @@
 
 - [Overview](#overview)
 - [Graph store](#graph-store)
+  - [Logging graph queries](#logging-graph-queries)
 - [Vector store](#vector-store)
 
 ### Overview
@@ -17,10 +18,6 @@ The toolkit provides graph store implementations for both [Amazon Neptune Analyt
 > This early release of the toolkit provides support for Amazon Neptune and Amazon OpenSearch Serverless, but we welcome alternative store implementations. The store APIs and the ways in which the stores are used have been designed to anticipate alternative implementations. However, the proof is in the development: if you experience issues developing an alternative store, [let us know](https://github.com/awslabs/graphrag-toolkit/issues).
 
 Graph stores and vector stores provide connectivity to an *existing* storage instance, which you will need to have provisioned beforehand.
-
-#### Code examples
-
-The code examples here are formatted to run in a Jupyter notebook. If you’re building an application with a main entry point, put your application logic inside a method, and add an [`if __name__ == '__main__'` block](./faq.md#runtimeerror-please-use-nest_asyncioapply-to-allow-nested-event-loops).
 
 ### Graph store
 
@@ -34,6 +31,24 @@ The lexical-graph supports the following graph databases:
   - [Amazon Neptune Analytics](./graph-store-neptune-analytics.md)
   - [Neo4j](./graph-store-neo4j.md)
   - [FalkorDB](./graph-store-falkor-db.md)
+
+#### Logging graph queries
+
+By default, all graph queries in logs are redacted. To configure the toolkit to log queries and their results, use `NonRedactedGraphQueryLogFormatting` when creating a graph store:
+
+```python
+import os
+from graphrag_toolkit.lexical_graph import set_logging_config
+from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory
+from graphrag_toolkit.lexical_graph.storage.graph import NonRedactedGraphQueryLogFormatting
+
+set_logging_config('DEBUG', ['graphrag_toolkit.lexical_graph.storage.graph'])
+
+graph_store = GraphStoreFactory.for_graph_store(
+	os.environ['GRAPH_STORE'],
+	log_formatting=NonRedactedGraphQueryLogFormatting()
+)
+```
 
 ### Vector store
 

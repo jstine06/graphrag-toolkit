@@ -109,7 +109,7 @@ Statements are grouped beneath topics (see below). Within a particular topic, st
 
 Statements act as the primary unit of context for question answering. They are connected transitively to other statements via both facts and topics.
 
-Statements can, optionally, be embedded, and so can act as higher-level entry points in the graph based on a vector search. The semantic-guided retriever uses statement embeddings to guide its search strategies. Statement embeddings also allow statements to be used in a 'baseline RAG' manner to retrieve relatively small pieces of context for answering simple questions.
+Statements can, optionally, be embedded, and so can act as higher-level entry points in the graph based on a vector search. Semantic-guided search uses statement embeddings to guide its search strategies. Statement embeddings also allow statements to be used in a 'baseline RAG' manner to retrieve relatively small pieces of context for answering simple questions.
 
 #### Topics
 

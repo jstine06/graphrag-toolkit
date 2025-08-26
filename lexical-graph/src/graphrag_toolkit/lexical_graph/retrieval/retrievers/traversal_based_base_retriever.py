@@ -193,7 +193,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
 
             start = time.time()
 
-            if self.args.ec_max_contexts < 1:
+            if not self.args.ec_max_contexts or self.args.ec_max_contexts < 1:
                 logger.debug(f'Ignoring retrieval of entity contexts because ec_max_contexts is {self.args.ec_max_contexts}')
                 return
 

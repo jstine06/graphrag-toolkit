@@ -22,6 +22,7 @@ class ByoKGQueryEngine:
                  graph_query_executor=None,
                  llm_generator=None,
                  kg_linker=None,
+                 cypher_kg_linker=None,
                  direct_query_linking=False):
         """
         Initialize the query engine.
@@ -81,15 +82,21 @@ class ByoKGQueryEngine:
             graph_query_executor = GraphQueryRetriever(self.graph_store)
         self.graph_query_executor = graph_query_executor
 
-        if kg_linker is None:
+        if kg_linker is None and cypher_kg_linker is None: #initialize KGLinker as default
             from graph_connectors import KGLinker
             kg_linker = KGLinker(
                 llm_generator=self.llm_generator,
                 graph_store=self.graph_store
             )
         self.kg_linker = kg_linker
-        self.kg_linker_prompts = self.kg_linker.task_prompts
-        self.kg_linker_prompts_iterative = self.kg_linker.task_prompts_iterative
+        
+        if self.kg_linker is not None:
+            self.kg_linker_prompts = self.kg_linker.task_prompts
+            self.kg_linker_prompts_iterative = self.kg_linker.task_prompts_iterative
+
+        if cypher_kg_linker is not None:
+            assert hasattr(cypher_kg_linker, "is_cypher_linker"), "cypher_kg_linker must be an instance of CypherKGLinker"
+        self.cypher_kg_linker = cypher_kg_linker
 
     def _add_to_context(self, context_list: List[str], new_items: List[str]) -> None:
         """
@@ -105,14 +112,15 @@ class ByoKGQueryEngine:
                 context_list.append(item)
                 seen.add(item)
 
-
-    def query(self, query: str, iterations: int = 1) -> Tuple[List[str], List[str]]:
+    
+    def query(self, query: str, iterations: int = 2, cypher_iterations: int = 2) -> Tuple[List[str], List[str]]:
         """
         Process a query through the retrieval and generation pipeline.
 
         Args:
             query: The search query
             iterations: Number of retrieval iterations to perform
+            cypher_iterations: Number of cypher generation retries
 
         Returns:
             Tuple of (retrieved context, final answers)
@@ -120,6 +128,7 @@ class ByoKGQueryEngine:
         retrieved_context: List[str] = []
         explored_entities: Set[str] = set()
         opencypher_answers: List[str] = []
+        cypher_context_with_feedback: List[str] = []
 
         if self.direct_query_linking:
             semantic_linked_entities = self.entity_linker.link([query], return_dict=False)
@@ -127,6 +136,44 @@ class ByoKGQueryEngine:
         else:
             semantic_linked_entities = []
 
+        # If cypher_kg_linker is provided, ByoKGQueryEngine tries to solve KGQA with cypher-based retrieval
+        if self.cypher_kg_linker is not None:
+            
+            assert self.graph_query_executor is not None, "graph_query_executor must be initialized"
+            
+            for iteration in range(cypher_iterations):
+                # Generate response for current iteration
+
+                response = self.cypher_kg_linker.generate_response(
+                    question=query,
+                    schema=self.schema,
+                    graph_context="\n".join(cypher_context_with_feedback) if cypher_context_with_feedback else "",
+                    task_prompts = self.cypher_kg_linker.task_prompts
+                )
+                artifacts = self.cypher_kg_linker.parse_response(response)
+
+                if "opencypher-linking" in artifacts:
+                    linking_query = " ".join(artifacts["opencypher-linking"])
+                    context, linked_entities_cypher = self.graph_query_executor.retrieve(linking_query, return_answers=True)
+                    cypher_context_with_feedback += context
+                    context, linked_entities_cypher = self.graph_query_executor.retrieve(linking_query, return_answers=True)
+                    if len(linked_entities_cypher) == 0:
+                        cypher_context_with_feedback.append("No executable results for the above cypher query for entity linking. Please improve cypher generation in the future for linking.")
+                    
+
+                if "opencypher" in artifacts:
+                    graph_query = " ".join(artifacts["opencypher"])
+                    context, answers = self.graph_query_executor.retrieve(graph_query, return_answers=True)
+                    cypher_context_with_feedback += context
+                    if len(answers) == 0:
+                        cypher_context_with_feedback.append("No executable resuls for the above. Please improve cypher generation in the future by focusing more on the given schema and the relations between node types.")
+            
+            if self.kg_linker is None:
+                return cypher_context_with_feedback
+            # TODO : Combine cypher linker with KG linker dynamically
+        
+
+        # If kg_linker is provided, ByoKGQueryEngine tries to solve KGQA with multi-strategy retrieval
         for iteration in range(iterations):
             # Generate response for current iteration
 
@@ -167,7 +214,7 @@ class ByoKGQueryEngine:
                 self._add_to_context(retrieved_context, path_context)
 
             # Process graph queries
-            for query_type in ["opencypher-neptune-rdf", "opencypher-neptune"]:
+            for query_type in ["opencypher", "opencypher-neptune-rdf", "opencypher-neptune"]:
                 if query_type in artifacts and self.graph_query_executor:
                     graph_query = " ".join(artifacts[query_type])
                     context = self.graph_query_executor.retrieve(graph_query, return_answers=False)
@@ -176,8 +223,7 @@ class ByoKGQueryEngine:
             task_completion = parse_response(response, r"<task-completion>(.*?)</task-completion>")
             if "FINISH" in " ".join(task_completion):
                 break
-
-        return retrieved_context
+        return cypher_context_with_feedback + retrieved_context
 
     def generate_response(self, query: str, graph_context: str = "", task_prompt = None) -> Tuple[List[str], str]:
         

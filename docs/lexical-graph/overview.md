@@ -39,9 +39,9 @@ The following diagram shows a high-level view of the indexing process:
 
 #### Querying
 
-Querying is a two-step process consisting of _retrieval_ and _generation_. Retrieval queries the graph and vector stores to fetch content relevant to answering a user question. Generation then supplies this content as context to an LLM to generate a response. The lexical-graph query engine allows an application to apply the retrieve operation by itself, which simply returns the search results fetched from the graph, or run an end-to-end query, which retrieves search results and then generates a response. 
+[Querying](./querying.md) is a two-step process consisting of _retrieval_ and _generation_. Retrieval queries the graph and vector stores to fetch content relevant to answering a user question. Generation then supplies this content as context to an LLM to generate a response. The lexical-graph query engine allows an application to apply the retrieve operation by itself, which simply returns the search results fetched from the graph, or run an end-to-end query, which retrieves search results and then generates a response. 
 
-The lexical-graph contains two different retrievers: a [semantic-guided](./querying.md#semanticguidedretriever) strategy, which is optimized for precise, detailed queries requiring fine-grained evidence, and a [traversal-based](./querying.md#traversalbasedretriever) strategy, which is optimized for retrieving broader, thematically related information distributed across multiple documents.
+The lexical-graph uses a [traversal-based search](./traversal-based-search.md) strategy for retrieving thematically related information distributed across multiple documents.
 
 The following diagram shows a high-level view of the end-to-end query process:
 
