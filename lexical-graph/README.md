@@ -128,15 +128,16 @@ if __name__ == '__main__':
 ## Documentation
 
   - [Overview](../docs/lexical-graph/overview.md)
+  - [Graph Model](../docs/lexical-graph/graph-model.md)
   - [Storage Model](../docs/lexical-graph/storage-model.md) 
   - [Indexing](../docs/lexical-graph/indexing.md) 
     - [Batch Extraction](../docs/lexical-graph/batch-extraction.md) 
+    - [Configuring Batch Extraction](../docs/lexical-graph/configuring-batch-extraction.md)
   - [Querying](../docs/querying.md) 
     - [Traversal-Based Search](../docs/traversal-based-search.md)
     - [Configuring and Tuning Traversal-Based Search](../docs/configuring-and-tuning-traversal-based-search.md)
   - [Multi-Tenancy](../docs/lexical-graph/multi-tenancy.md) 
-  - [Configuration](../docs/lexical-graph/configuration.md) 
-  - [Graph Model](../docs/lexical-graph/graph-model.md)
+  - [Configuration](../docs/lexical-graph/configuration.md)   
   - [Security](../docs/lexical-graph/security.md)
   - [FAQ](../docs/lexical-graph/faq.md)
 
