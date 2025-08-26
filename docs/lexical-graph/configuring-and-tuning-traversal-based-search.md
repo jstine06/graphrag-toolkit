@@ -15,6 +15,19 @@
   - [Retriever selection](#retriever-selection)
     - [retrievers](#retrievers)
     - [When to use different retrievers](#when-to-use-different-retrievers)
+  - [Reranking strategy](#reranking-strategy)
+    - [reranker](#reranker)
+    - [Choosing a reranker strategy](#choosing-a-reranker-strategy)
+    - [Troubleshooting reranking results](#troubleshooting-reranking-results)
+  - [Entity network context selection](#entity-network-context-selection)
+    - [Entity network generation](#entity-network-generation)
+    - [ec_max_depth](#ec_max_depth)
+    - [ec_max_contexts](#ec_max_contexts)
+    - [ec_max_score_factor](#ec_max_score_factor)
+    - [ec_min_score_factor](#ec_min_score_factor)
+    - [When to adjust entity network generation](#when-to-adjust-entity-network-generation)
+
+
    
 
 ### Overview
@@ -154,7 +167,7 @@ query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
 
 The tfidf reranker option provides a fast, cost-effective, and generally effective solution for most use cases. However, if you find that the results don't meet your requirements, consider switching to the model reranker. Be aware that while model may provide different results, it operates significantly slower than tfidf and doesn't guarantee improved outcomes.
 
-##### Troubleshooting poor results
+##### Troubleshooting reranking results
 
 An effective reranking strategy should ensure that only highly relevant statements appear in your final results. For reranking to work properly, the relevant statements must first be captured by your retrievers before the reranking process begins.
 
@@ -162,9 +175,9 @@ If your search results don't include content you expect to see, verify whether t
 
   1. Disabling the reranker by setting `reranker=None`
   2. Increasing the following parameters in your [search results configuration](#search-results-configuration):
-     - Maximum number of search results
-     - Maximum number of statements
-     - Maximum number of statements per topic
+    - [max_search_results](#max_search_results)
+    - [max_statements_per_topic](#max_statements_per_topic)
+    - [max_statements](#max_statements)
 
 After making these adjustments, review the results returned by the `retrieve()` operation. If the expected content still doesn't appear, the issue isn't related to reranking. Instead, consider other tuning approaches described elsewhere in the documentation, such as:
 
@@ -179,3 +192,62 @@ ___
 ___
 
 ### Entity network context selection
+
+The system creates focused entity networks based on the user's query terms. These contextual networks guide both retrieval and response generation phases.
+
+#### Entity network generation
+
+The process for generating entity network contexts is as follows:
+
+  1. **Initial entity discovery** Match query terms to entities using various search methods: lookup by id, exact match, partial match, full text search, or any other search technique offered by the graph store.
+  2. **Entity prioritization**	Sort matched entities by relevance to query. Calculate the degree centrality of top entity: this will be used as a benchmark for subsequent filtering.
+  3. **Network expansion** Starting from each entity node, follow entity-to-entity relationships, expanding to a depth of 2-3 levels.
+  4. **Network pruning** Apply filtering based on degree centrality thresholds derived from the benchmark created in step 2. Remove entities above and below these threshold along each path.
+  5. **Path selection** Rerank all valid paths and select the top N highest-ranking paths. These form the final set of entity network contexts.
+
+You can configure entity network generation using the following parameters:
+
+##### `ec_max_depth`
+
+Determines the maximum path depth in entity networks. 
+
+This value also controls the entity count per level according to depth. For a depth-2 traversal: 3 entities at depth 1, 2 entities at depth 2. For a depth-3 traversal: 4 entities at depth 1, 3 entities at depth 2, 2 entities at depth 3. 
+
+The default value is `2`.
+
+##### `ec_max_contexts`
+
+Limits the number of entity contexts returned by providers. Note: Multiple entity contexts may originate from the same root entity. The default value is `2`.
+
+##### `ec_max_score_factor`
+
+Filters out entities whose degree centrality exceeds a threshold based on a percentage of the degree centrality of the top entity. The default value is `3` (300% of the top entity's score).
+
+##### `ec_min_score_factor`
+
+Filters out entities whose degree centrality falls below a threshold based on a percentage of the degree centrality of the top entity. The default value is `0.25` (25% of the top entity's score).
+
+#### Example
+
+```python
+query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
+    graph_store, 
+    vector_store,
+    ec_max_depth=3,
+    ec_max_contexts=3
+)
+```
+
+#### When to adjust entity network generation
+
+These settings control how extensively the system searches for related content and how it filters results based on entity relationships. Increase the search scope to find structurally relevant but dissimilar content. Reduce the search scope to focus on content similar to the query.
+
+A **broad but shallow search** – i.e. low `ec_max_depth` value (e.g. `1`) and high `ec_max_contexts` (e.g. `5`) – helps explore diverse contexts focused on direct matches to the query. 
+
+A **deep but narrow search** – i.e. high `ec_max_depth` value (e.g. `3`) and low `ec_max_contexts` (e.g. `2`) – helps explore distantly related content through key entities.
+
+The `ec_max_score_factor` and `ec_min_score_factor` parameters allow you to filter out 'whales' and 'minnows' in proportion to the significance of the root entity. 
+
+`ec_max_score_factor` controls how prominently high-scoring distant entities appear in the search results. Higher values will include well-connected entities even if they're distantly related. Increase `ec_max_score_factor` when you want to see important entities that aren't directly connected.
+
+`ec_min_score_factor` controls the inclusion of less significant distant entities. Lower values will result in the inclusion of rarely mentioned entities even if they're distantly related. Decrease `ec_min_score_factor` to find niche or uncommon connections.
