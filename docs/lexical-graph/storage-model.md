@@ -6,6 +6,7 @@
 
 - [Overview](#overview)
 - [Graph store](#graph-store)
+  - [Logging graph queries](#logging-graph-queries)
 - [Vector store](#vector-store)
 
 ### Overview
@@ -30,6 +31,24 @@ The lexical-graph supports the following graph databases:
   - [Amazon Neptune Analytics](./graph-store-neptune-analytics.md)
   - [Neo4j](./graph-store-neo4j.md)
   - [FalkorDB](./graph-store-falkor-db.md)
+
+#### Logging graph queries
+
+By default, all graph queries in logs are redacted. To configure the toolkit to log queries and their results, use `NonRedactedGraphQueryLogFormatting` when creating a graph store:
+
+```python
+import os
+from graphrag_toolkit.lexical_graph import set_logging_config
+from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory
+from graphrag_toolkit.lexical_graph.storage.graph import NonRedactedGraphQueryLogFormatting
+
+set_logging_config('DEBUG', ['graphrag_toolkit.lexical_graph.storage.graph'])
+
+graph_store = GraphStoreFactory.for_graph_store(
+	os.environ['GRAPH_STORE'],
+	log_formatting=NonRedactedGraphQueryLogFormatting()
+)
+```
 
 ### Vector store
 
