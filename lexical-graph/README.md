@@ -130,7 +130,7 @@ if __name__ == '__main__':
   - [Overview](../docs/lexical-graph/overview.md)
   - [Storage Model](../docs/lexical-graph/storage-model.md) 
   - [Indexing](../docs/lexical-graph/indexing.md) 
-  - [Batch Extraction](../docs/lexical-graph/batch-extraction.md) 
+    - [Batch Extraction](../docs/lexical-graph/batch-extraction.md) 
   - [Querying](../docs/querying.md) 
     - [Traversal-Based Search](../docs/traversal-based-search.md)
     - [Configuring and Tuning Traversal-Based Search](../docs/configuring-and-tuning-traversal-based-search.md)
