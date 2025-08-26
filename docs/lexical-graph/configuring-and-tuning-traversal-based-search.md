@@ -19,6 +19,13 @@
     - [reranker](#reranker)
     - [Choosing a reranker strategy](#choosing-a-reranker-strategy)
     - [Troubleshooting reranking results](#troubleshooting-reranking-results)
+  - [Graph and vector search parameters](#graph-and-vector-search-parameters)
+    - [intermediate_limit](#intermediate_limit)
+    - [query_limit](#query_limit)
+    - [vss_top_k](#vss_top_k)
+    - [vss_diversity_factor](#vss_diversity_factor)
+    - [num_workers](#num_workers)
+    - [When to change the graph and vector search parameters](#when-to-change-the-graph-and-vector-search-parameters)
   - [Entity network context selection](#entity-network-context-selection)
     - [Entity network generation](#entity-network-generation)
     - [ec_max_depth](#ec_max_depth)
@@ -38,7 +45,7 @@ You can customize traversal-based search operations to better suit your specific
   - [**Retriever selection**](#retriever-selection) Specify which retrievers to use when fetching information
   - [**Reranking strategy**](#reranking-strategy) Modify how statements and results are reranked and sorted
   - **Graph and vector search parameters** Customize parameters that control graph queries and vector searches
-  - **Entity network context selection** Configure parameters used to select entity network contexts
+  - [**Entity network context selection**](#entity-network-context-selection) Configure parameters used to select entity network contexts
 
 These options allow you to fine-tune your search behavior based on your specific requirements and improve the relevance of returned results.
 ___
@@ -188,6 +195,49 @@ After making these adjustments, review the results returned by the `retrieve()` 
 ___
 
 ### Graph and vector search parameters
+
+These settings govern how the system queries both the graph and vector stores. When a user submits a query, multiple searches run across both stores, with some executing in parallel. The vector store returns the most similar items based on a top K approach. Results can be diversified across different sources. Graph store queries return statement sets, grouped by their source. Graph queries use a two-phase process: initial statement identification followed by connection exploration.
+
+##### `intermediate_limit`
+
+Controls how many statements are identified in the first phase of a graph query, before exploring their connections (both local and global). The default value is `50`.
+
+##### `query_limit`
+
+Defines how many results each graph query returns. Each result consists of statements from a single source. The default value is `10`.
+
+##### `vss_top_k`
+
+Specifies how many top matching results are used to begin similarity-based traversals. The default value is `10`.
+
+##### `vss_diversity_factor`
+
+Ensures results come from a diverse range of sources. Queries to a vector store retrieve (`vss_top_k × vss_diversity_factor`) initial matches, and then iteratively select the most relevant result from previously unused sources. This process continues until reaching `vss_top_k` total results. If set to `None`, simply returns the first `vss_top_k` matches. The default value is `5`.
+
+##### `num_workers`
+ 
+Sets the number of threads available for running graph queries in parallel. The default value is `10`.
+
+#### Example
+
+```python
+query_engine = LexicalGraphQueryEngine.for_traversal_based_search(
+    graph_store, 
+    vector_store,
+    intermediate_limit=25,
+    num_workers=3
+)
+```
+
+#### When to change the graph and vector search parameters
+
+Whereas the [search results configuration](#search-results-configuration) parameters control the handling of the search results, the graph and vector store configuration parameters control the query processing used to generate the results. 
+
+If your queries require finding highly diverse content from across multiple sources, increase the `vss_diversity_factor`. If your queries require content that derives directly from primary sources, reduce `vss_diversity_factor`, or set it to `None`.
+
+If you experience out of memeory issue while running user queries, reduce the `intermediate_limit` and `num_workers`. This will reduce the size of the working set for each graph query, and reduce the number of graph queries running in parallel.
+
+If your application requires a large number of search results, you should consider increasing the `intermediate_limit`, `query_limit` and/or `vss_top_k`. Note that increasing these parameters can increase query latencies, and require more memory.
 
 ___
 
