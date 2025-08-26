@@ -96,7 +96,7 @@ ___
 
 ### Retriever selection
 
-You can use the `retrievers` parameter to configure traversal-based search with up to three different retrievers.
+You can use the `retrievers` parameter to configure traversal-based search with up to [three different retrievers](./traversal-based-search.md#retrievers).
 
 #####  `retrievers`
 
@@ -243,7 +243,7 @@ ___
 
 ### Entity network context selection
 
-The system creates focused entity networks based on the user's query terms. These contextual networks guide both retrieval and response generation phases.
+The system creates focused [entity network contexts](./traversal-based-search.md#entity-network-contexts) based on the user's query terms. These contextual networks guide both retrieval and response generation phases.
 
 #### Entity network generation
 

@@ -20,15 +20,9 @@
 
 For the graphrag-toolkit, the primary unit of context presented to the LLM is the *statement*, which is a standalone assertion or proposition. Source documents are broken into chunks, and from these chunks are extracted statements. In the graphrag-toolkit's [graph model](./graph-model.md), statements are thematically grouped by topic, and supported by facts. At question-answering time, the lexical-graph retrieves groups of statements, and presents them in the context window to the LLM.
 
-The lexical-graph contains two different retrievers: a `TraversalBasedRetriever`, and a `SemanticGuidedRetriever`. The `TraversalBasedRetriever` uses a combination of 'top down' search – finding chunks through vector similarity search, and then traversing from these chunks through topics to statements and facts – and 'bottom up' search, which performs keyword-based lookups of entities, and proceeds through facts to statements and topics. The `SemanticGuidedRetriever` integrates vector-based semantic search with structured graph traversal. It uses semantic and keyword-based searches to identify entry points, then intelligently explores the graph through beam search and path analysis, while employing reranking and diversity filtering to ensure quality results. This hybrid approach enables both precise matching and contextual exploration.
+The lexical-graph uses a [traversal-based search](./traversal-based-search.md) strategy to perform hybrid top-down and bottom-up similarity and graph-based searches. (The lexical-graph also includes a semantic-guided search approach which will likely be retired in future versions).
 
-The `SemanticGuidedRetriever` uses a *statement* vector index, whereas the `TraversalBasedRetriever` uses a *chunk* vector index. The chunk vector index is much smaller than the statement index.
-
-In the current release the output formats of the two retrievers are different. Future releases of the lexical-graph will seek to align the outputs.
-
-> The [FalkorDB graph store](./storage-model.md#falkordb-graph-store) currently supports the `SemanticGuidedRetriever`. It does not support the [`TraversalBasedRetriever`](./querying.md#traversalbasedretriever)`.
-
-Querying supports [multi-tenancy](multi-tenancy.md), whereby you can query different lexical graphs hosted in the same backend graph and vector stores.
+Querying supports [metadata filtering](./metadata-filtering.md) and [multi-tenancy](multi-tenancy.md). Metadata filtering allows you to retrieve a constrained set of sources, topics and statements based on metadata filters and associated values when querying a lexical graph. Multi-tenancy allows you to query different lexical graphs hosted in the same backend graph and vector stores. 
 
 #### Code examples
 
