@@ -15,7 +15,7 @@
       - [max_batch_size](#max_batch_size)
       - [max_num_concurrent_batches](#max_num_concurrent_batches)
       - [s3_encryption_key_id](#s3_encryption_key_id)
-    - [VPC security parameters (optional)]
+    - [VPC security parameters (optional)](#vpc-security-parameters-optional)
       - [subnet_ids](#subnet_ids)
       - [security_group_ids](#security_group_ids)
     - [File management](#file-management)
@@ -24,7 +24,7 @@
 
 ### Overview
 
-### `BatchConfig` parameters
+### BatchConfig parameters
 
 The `BatchConfig` object manages the configuration settings for Amazon Bedrock batch inference jobs. Here's a detailed explanation of each parameter:
 
@@ -80,7 +80,7 @@ Controls whether input and output JSON files are automatically deleted from the 
 
 ### Optimizing batch extraction performance
 
-The most important setting for controlling batch extraction performance are:
+The most important settings for controlling batch extraction performance are:
 
   - `GraphRAGConfig.extraction_batch_size`: Sets how many source documents go to the extraction pipeline. When calculating this value, consider that the total number of chunks (source documents × average chunks per document) should be sufficient to fill your planned simultaneous batch jobs.
   - `GraphRAGConfig.extraction_num_workers`: Sets how many CPUs run batch jobs simultaneously.

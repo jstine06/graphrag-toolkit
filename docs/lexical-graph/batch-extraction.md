@@ -175,7 +175,7 @@ Add the `iam:PassRole` permission so that the IAM identity under which the index
 
 ### Batch extraction job requirements
 
-Each batch extraction job must follow Amazon Bedrock's [batch inference quotas](https://docs.aws.amazon.com/bedrock/latest/userguide/batch-inference-data.html). The lexical-graph's batch extraction uses one input file per job.
+Each batch extraction job must follow Amazon Bedrock's [batch inference quotas](https://docs.aws.amazon.com/bedrock/latest/userguide/batch-inference-data.html). The lexical-graph's batch extraction feature uses one input file per job.
 
 #### Key requirements
 
