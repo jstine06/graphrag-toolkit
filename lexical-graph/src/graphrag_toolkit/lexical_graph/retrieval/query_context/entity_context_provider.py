@@ -128,11 +128,18 @@ class EntityContextProvider():
         upper_score_threshold = baseline_score * self.args.ec_max_score_factor
         lower_score_threshhold = baseline_score * self.args.ec_min_score_factor
 
-        
+        logger.debug(f'upper_score_threshold: {upper_score_threshold}, lower_score_threshhold: {lower_score_threshhold}')
+
+        def filter_entity(scored_entity):
+            allow = scored_entity.score <= upper_score_threshold and scored_entity.score >= lower_score_threshhold
+            if not allow:
+                logger.debug(f'Discarding entity: {scored_entity.model_dump_json(exclude_unset=True, exclude_none=True, warnings=False)}')
+            return allow
+            
         all_neighbour_entities = [
-            ScoredEntity.model_validate(result['result'])
-            for result in results 
-            if result['result']['score'] <= upper_score_threshold and result['result']['score'] >= lower_score_threshhold
+            scored_entity
+            for scored_entity in [ScoredEntity.model_validate(result['result']) for result in results]
+            if filter_entity(scored_entity)
         ]
 
         logger.debug(f'all_neighbour_entities: {all_neighbour_entities}')
