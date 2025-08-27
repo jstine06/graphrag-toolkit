@@ -267,11 +267,11 @@ The default value is `2`.
 
 ##### `ec_max_contexts`
 
-Limits the number of entity contexts returned by providers. Note: Multiple entity contexts may originate from the same root entity. The default value is `2`.
+Limits the number of entity contexts returned by providers. Note: Multiple entity contexts may originate from the same root entity. The default value is `3`.
 
 ##### `ec_max_score_factor`
 
-Filters out entities whose degree centrality exceeds a threshold based on a percentage of the degree centrality of the top entity. The default value is `3` (300% of the top entity's score).
+Filters out entities whose degree centrality exceeds a threshold based on a percentage of the degree centrality of the top entity. The default value is `15` (1500% of the top entity's score).
 
 ##### `ec_min_score_factor`
 

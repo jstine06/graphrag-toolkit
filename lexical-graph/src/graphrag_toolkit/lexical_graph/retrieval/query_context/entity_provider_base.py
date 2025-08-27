@@ -33,10 +33,10 @@ class EntityProviderBase():
         duration_ms = (end-start) * 1000
 
         logger.debug(f"""[{type(self).__name__}] Entities ({duration_ms:.2f} ms): {[
-            entity.model_dump_json(exclude_unset=True, exclude_defaults=True, exclude_none=True, warnings=False) 
+            entity.model_dump_json(exclude_unset=True, exclude_none=True, warnings=False) 
             for entity in entities
         ]}""")
 
-        return entities[:self.args.ec_num_entities]
+        return entities[:self.args.ec_max_entities]
 
         

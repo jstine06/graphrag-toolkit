@@ -27,12 +27,19 @@ class EntityContextProvider():
         max_num_neighbours = self.args.ec_max_depth + 1
         
         entity_ids = [entity.entity.entityId for entity in entities if entity.score > 0] 
-        exclude_entity_ids = set(entity_ids)
-        neighbour_entity_ids = set()
         
-        entity_id_context_tree = { entity_id:{} for entity_id in entity_ids }
-        
-        for entity_id, entity_id_context in entity_id_context_tree.items():
+        excluded_entity_ids = set()
+        entity_id_context_tree = {}
+       
+        for entity_id in entity_ids:
+
+            if entity_id in excluded_entity_ids:
+                continue
+            else:
+                excluded_entity_ids.add(entity_id)
+
+            entity_id_context = {}
+            entity_id_context_tree[entity_id] = entity_id_context
             
             start_entity_ids = set([entity_id])
             
@@ -55,7 +62,7 @@ class EntityContextProvider():
 
                 params = {
                     'entityIds': list(start_entity_ids),
-                    'excludeEntityIds': list(exclude_entity_ids),
+                    'excludeEntityIds': list(excluded_entity_ids),
                     'numNeighbours': num_neighbours
                 }
 
@@ -69,6 +76,10 @@ class EntityContextProvider():
                     other_entity_ids = result['result']['others']
 
                     for other_entity_id in other_entity_ids:
+                        if other_entity_id in excluded_entity_ids:
+                            continue
+                        else:
+                            excluded_entity_ids.add(other_entity_id)
                         child_context = { }
                         current_entity_id_contexts[start_entity_id][other_entity_id] = child_context
                         new_entity_id_contexts[other_entity_id] = child_context
@@ -80,7 +91,6 @@ class EntityContextProvider():
                     for other_id in result['result']['others'] 
                 ])
 
-                neighbour_entity_ids.update(other_entity_ids)
                 start_entity_ids = other_entity_ids
 
                 current_entity_id_contexts = new_entity_id_contexts
@@ -128,11 +138,18 @@ class EntityContextProvider():
         upper_score_threshold = baseline_score * self.args.ec_max_score_factor
         lower_score_threshhold = baseline_score * self.args.ec_min_score_factor
 
-        
+        logger.debug(f'upper_score_threshold: {upper_score_threshold}, lower_score_threshhold: {lower_score_threshhold}')
+
+        def filter_entity(scored_entity):
+            allow = scored_entity.score <= upper_score_threshold and scored_entity.score >= lower_score_threshhold
+            if not allow:
+                logger.debug(f'Discarding entity: {scored_entity.model_dump_json(exclude_unset=True, exclude_none=True, warnings=False)}')
+            return allow
+            
         all_neighbour_entities = [
-            ScoredEntity.model_validate(result['result'])
-            for result in results 
-            if result['result']['score'] <= upper_score_threshold and result['result']['score'] >= lower_score_threshhold
+            scored_entity
+            for scored_entity in [ScoredEntity.model_validate(result['result']) for result in results]
+            if filter_entity(scored_entity)
         ]
 
         logger.debug(f'all_neighbour_entities: {all_neighbour_entities}')

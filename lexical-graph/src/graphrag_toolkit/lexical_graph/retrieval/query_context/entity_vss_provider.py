@@ -150,8 +150,7 @@ class EntityVSSProvider(EntityProviderBase):
 
         logger.debug(f'entities for values: [values: {values}, {self.index_name}_ids: {node_ids}, entities: {entities}]')
 
-        reranked_entity_names = self._get_reranked_entity_names(entities, values)
-        return self._get_reranked_entities(entities, reranked_entity_names)
+        return entities
                         
     def _get_reranked_entities(self, entities:List[ScoredEntity], reranked_entity_names:Dict[str, float]) -> List[ScoredEntity]:
 
@@ -182,8 +181,8 @@ class EntityVSSProvider(EntityProviderBase):
             all_entities_map.update({e.entity.entityId:e for e in entities})
 
         add_to_entities_map(self._get_entities_by_keyword_match(keywords, query_bundle))
-        add_to_entities_map(self._get_entities_for_values([query_bundle.query_str])[:3])
-        add_to_entities_map(self._get_entities_for_values(keywords)[:3])
+        add_to_entities_map(self._get_entities_for_values([query_bundle.query_str])[:self.args.ec_max_entities])
+        add_to_entities_map(self._get_entities_for_values(keywords)[:self.args.ec_max_entities])
         
         all_reranked_entity_names = self._get_reranked_entity_names(list(all_entities_map.values()), [query_bundle.query_str] + keywords)
         all_reranked_entities = self._get_reranked_entities(list(all_entities_map.values()), all_reranked_entity_names)
