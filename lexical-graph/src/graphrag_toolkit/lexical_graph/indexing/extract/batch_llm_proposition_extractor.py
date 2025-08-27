@@ -26,6 +26,7 @@ from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.bridge.pydantic import Field
 from llama_index.core.schema import TextNode, BaseNode
 from llama_index.core.prompts import PromptTemplate
+from llama_index.core.schema import NodeRelationship
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +137,12 @@ class BatchLLMPropositionExtractor(BaseExtractor):
             messages_batch = []
             for node in node_batch:
                 text = node.metadata.get(self.source_metadata_field, node.text) if self.source_metadata_field else node.text
-                messages = self.llm.llm._get_messages(PromptTemplate(self.prompt_template), text=text)
+                source = node.relationships.get(NodeRelationship.SOURCE, None)
+                if source:
+                    source_info = '\n'.join([str(v) for v in source.metadata.values()])
+                else:
+                    source_info = ''
+                messages = self.llm.llm._get_messages(PromptTemplate(self.prompt_template), text=text, source_info=source_info)
                 messages_batch.append(messages)
 
             json_inputs = create_inference_inputs_for_messages(
