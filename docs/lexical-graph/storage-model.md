@@ -52,7 +52,7 @@ graph_store = GraphStoreFactory.for_graph_store(
 
 ### Vector store
 
-A vector store is a collection of vector indexes. The lexical-graph uses up to two vector indexes: a chunk index and a statement index. The chunk index is typically much smaller than the statement index. If you want to use the [SemanticGuidedRetriever](./querying.md#semanticguidedretriever), you will need to enable the statement index. If you want to use the [TraversalBasedRetriever](./querying.md#traversalbasedretriever), you will need to enable the chunk index. If you want to use both retrievers, you will need to enable both indexes. (The `VectorStoreFactory` described below enables both indexes by default.)
+A vector store is a collection of vector indexes. The lexical-graph uses up to two vector indexes: a chunk index and a statement index. The chunk index is typically much smaller than the statement index. If you want to use [semantic-guided search](./semantic-guided-search.md), you will need to enable the statement index. If you want to use [traversal-based-search](./traversal-based-search.md), you will need to enable the chunk index. The `VectorStoreFactory` described below enables both indexes by default.
 
 You use the `VectorStoreFactory.for_vector_store()` static factory method to create a vector store.
 
@@ -62,7 +62,7 @@ The lexical-graph supports the following vector-stores:
   - [Amazon Neptune Analytics](./vector-store-neptune-analytics.md)
   - [Postgres with the pgvector extension](./vector-store-postgres.md)
 
-By default, the `VectorStoreFactory` will enable both the statement index and the chunk index. If you want to enable just one of the indexes, pass an `index_names` argument to the factory method:
+By default, the `VectorStoreFactory` will enable both the statement index and the chunk index. However, we recommend using traversal-based search, which requres only the chunk index. Use the `index_names` argument to enable just the chunk index:
 
 ```python
 vector_store = VectorStoreFactory.for_vector_store(opensearch_connection_info, index_names=['chunk'])
