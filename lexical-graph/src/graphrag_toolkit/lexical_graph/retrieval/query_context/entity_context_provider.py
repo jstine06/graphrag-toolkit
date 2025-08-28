@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import time
+import statistics
 from typing import List, Dict
 
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
@@ -24,7 +25,7 @@ class EntityContextProvider():
         
         start = time.time()
 
-        max_num_neighbours = self.args.ec_max_depth + 1
+        max_num_neighbours = self.args.ec_max_depth + 2
         
         entity_ids = [entity.entity.entityId for entity in entities if entity.score > 0] 
         
@@ -45,7 +46,7 @@ class EntityContextProvider():
             
             current_entity_id_contexts = { entity_id: entity_id_context  }
 
-            for num_neighbours in range (max_num_neighbours, 1, -1):
+            for num_neighbours in range (max_num_neighbours, 2, -1):
 
                 cypher = f"""
                 // get next level in tree
@@ -102,7 +103,7 @@ class EntityContextProvider():
                 
         return entity_id_context_tree
     
-    def _get_neighbour_entities(self, entity_id_context_tree:Dict[str, Dict], baseline_score:float) -> List[ScoredEntity]:
+    def _get_neighbour_entities(self, entity_id_context_tree:Dict[str, Dict]) -> List[ScoredEntity]:
 
         start = time.time()
 
@@ -135,32 +136,9 @@ class EntityContextProvider():
 
         results = self.graph_store.execute_query(cypher, params)
 
-        upper_score_threshold = baseline_score * self.args.ec_max_score_factor
-        lower_score_threshhold = baseline_score * self.args.ec_min_score_factor
-
-        logger.debug(f'upper_score_threshold: {upper_score_threshold}, lower_score_threshhold: {lower_score_threshhold}')
-
-        def filter_entity(scored_entity):
-            allow = scored_entity.score <= upper_score_threshold and scored_entity.score >= lower_score_threshhold
-            if not allow:
-                logger.debug(f'Discarding entity: {scored_entity.model_dump_json(exclude_unset=True, exclude_none=True, warnings=False)}')
-            return allow
-            
-        all_neighbour_entities = [
-            scored_entity
-            for scored_entity in [ScoredEntity.model_validate(result['result']) for result in results]
-            if filter_entity(scored_entity)
-        ]
-
-        logger.debug(f'all_neighbour_entities: {all_neighbour_entities}')
-
         neighbour_entities = [
-            e 
-            for e in all_neighbour_entities 
-            if e.score <= upper_score_threshold and e.score >= lower_score_threshhold
+            ScoredEntity.model_validate(result['result']) for result in results
         ]
-
-        neighbour_entities.sort(key=lambda e:e.score, reverse=True)
 
         end = time.time()
         duration_ms = (end-start) * 1000
@@ -177,8 +155,6 @@ class EntityContextProvider():
         all_entities = {
             entity.entity.entityId:entity for entity in entities
         }
-
-        logger.debug(f'all_entities: {all_entities}')
 
         all_contexts_map = {}
 
@@ -214,11 +190,15 @@ class EntityContextProvider():
 
         logger.debug(f'all_contexts: {all_contexts}')
 
-        deduped_contexts = self.dedup(all_contexts)
+        deduped_contexts = self.dedup_contexts(all_contexts)
 
         logger.debug(f'deduped_contexts: {deduped_contexts}')
 
-        contexts = deduped_contexts[:self.args.ec_max_contexts]
+        ordered_contexts = self.order_contexts(deduped_contexts)
+
+        logger.debug(f'ordered_contexts: {ordered_contexts}')
+
+        contexts = ordered_contexts[:self.args.ec_max_contexts]
 
         end = time.time()
         duration_ms = (end-start) * 1000
@@ -227,7 +207,7 @@ class EntityContextProvider():
 
         return contexts
     
-    def dedup(self,  contexts:List[List[ScoredEntity]]) ->  List[List[ScoredEntity]]:
+    def dedup_contexts(self, contexts:List[List[ScoredEntity]]) ->  List[List[ScoredEntity]]:
 
         context_map = {
             ','.join([e.entity.value.lower() for e in context]):context
@@ -255,8 +235,57 @@ class EntityContextProvider():
                 deduped_contexts.append(context)
 
         return deduped_contexts
+    
 
-                        
+    def order_contexts(self, contexts:List[List[ScoredEntity]]) ->  List[List[ScoredEntity]]:
+
+        def score_context(context:List[ScoredEntity]):
+            score = statistics.mean([e.score for e in context])
+            reranking_score = statistics.mean([e.reranking_score for e in context])
+            return score/reranking_score if reranking_score > 0 else 0
+        
+        context_map = {
+            ','.join([e.entity.value.lower() for e in context]):context
+            for context in contexts
+        }
+
+        scored_context_map = {
+            k:score_context(v)
+            for k,v in context_map.items()
+        }
+
+        return [
+            context_map[k]
+            for k, _ in sorted(scored_context_map.items(), key=lambda item: item[1], reverse=True)
+        ]
+    
+    def filter_entities(self, entities:List[ScoredEntity]) -> List[ScoredEntity]:
+
+        baseline_score=entities[0].score
+
+        upper_score_threshold = baseline_score * self.args.ec_max_score_factor
+        lower_score_threshhold = baseline_score * self.args.ec_min_score_factor
+
+        logger.debug(f'upper_score_threshold: {upper_score_threshold}, lower_score_threshhold: {lower_score_threshhold}')
+
+        def filter_entity(entity:ScoredEntity):
+            allow = entity.score <= upper_score_threshold and entity.score >= lower_score_threshhold
+            if not allow:
+                logger.debug(f'Discarding entity: {entity.model_dump_json(exclude_unset=True, exclude_none=True, warnings=False)}')
+            return allow
+
+        filtered_entities = [
+            e 
+            for e in entities 
+            if filter_entity(e)
+        ]
+
+        filtered_entities.sort(key=lambda e:e.score, reverse=True)
+
+        logger.debug(f'filtered_entities: {filtered_entities}')
+
+        return filtered_entities
+             
     def get_entity_contexts(self, entities:List[ScoredEntity], query_bundle:QueryBundle)  -> EntityContexts:
 
         start = time.time()
@@ -267,10 +296,11 @@ class EntityContextProvider():
             
             neighbour_entities = self._get_neighbour_entities(
                 entity_id_context_tree=entity_id_context_tree,
-                baseline_score=entities[0].score
             )
 
             entities.extend(neighbour_entities)     
+
+            entities = self.filter_entities(entities)
         
             entity_contexts = self._get_entity_contexts(
                 entities=entities,

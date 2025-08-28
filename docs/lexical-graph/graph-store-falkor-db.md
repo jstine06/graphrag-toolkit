@@ -37,7 +37,7 @@ GraphStoreFactory.register(FalkorDBGraphStoreFactory)
 
 You can use the `GraphStoreFactory.for_graph_store()` static factory method to create an instance of a FalkorDB graph store.
 
-The FalkorDB graph store currently supports the [SemanticGuidedRetriever](./querying.md#semanticguidedretriever). It does not support the [TraversalBasedRetriever](./querying.md#traversalbasedretriever).
+The FalkorDB graph store currently supports [semantic-guided search](./semantic-guided-search.md). It does not support [traversal-based search](./traversal-based-search.md).
 
 To create a [FalkorDB Cloud](https://app.falkordb.cloud/) graph store, supply a connection string that begins `falkordb://`, followed by the FalkorDB endpoint:
 
