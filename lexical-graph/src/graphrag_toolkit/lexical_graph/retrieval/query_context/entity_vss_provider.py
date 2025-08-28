@@ -34,7 +34,7 @@ class EntityVSSProvider(EntityProviderBase):
         id_name = f'{index_name}Id'
         
         query_bundle =  QueryBundle(query_str=', '.join(keywords))
-        vss_results = self.vector_store.get_index(index_name).top_k(query_bundle, 3, filter_config=self.filter_config)
+        vss_results = self.vector_store.get_index(index_name).top_k(query_bundle, top_k=3, filter_config=self.filter_config)
 
         node_ids = [result[index_name][id_name] for result in vss_results]
 

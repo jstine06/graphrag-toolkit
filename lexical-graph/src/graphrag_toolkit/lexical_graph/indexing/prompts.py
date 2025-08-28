@@ -67,8 +67,8 @@ You are a top-tier algorithm designed for extracting information in structured f
 2. Break down lists and tables of information into sets of simple statements.
 3. Preserve original phrasing from the input text whenever possible.
 4. Add a proposition per named entity that classifies that entity.
-5. Use the additional source information provided to resolve ambiguous entity identifiers and resolve coreferences to the most complete identifier for an entity.
-6. Maintain named entity consistency by resolving coreferences across all propositions to the most complete identifier for that entity.
+5. Maintain named entity consistency by resolving coreferences across all propositions to the most complete identifier for that entity.
+6. If in doubt about an entity's identifier, use the additional source information provided to resolve the entity to its most complete identifier.
 7. Isolate descriptive information about named entities into separate propositions.
 8. Decontextualize each proposition by:
    a) Adding necessary modifiers to nouns or entire propositions.
