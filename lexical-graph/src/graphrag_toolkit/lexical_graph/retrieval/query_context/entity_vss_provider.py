@@ -115,16 +115,12 @@ class EntityVSSProvider(EntityProviderBase):
             for reranked_value in reranked_values
         }
 
-        logger.debug(f'reranking (model): [keywords: {keywords}, reranked_entity_names: {reranked_entity_names}]')
-
         return reranked_entity_names
     
     def _get_reranked_entity_names_tfidf(self, entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
         
         entity_names = [entity.entity.value.lower() for entity in entities]
         reranked_entity_names = score_values_with_tfidf(entity_names, keywords)
-
-        logger.debug(f'reranking (tfidf): [keywords: {keywords}, reranked_entity_names: {reranked_entity_names}]')
 
         return reranked_entity_names
 
@@ -135,9 +131,13 @@ class EntityVSSProvider(EntityProviderBase):
         else:
             results = self._get_reranked_entity_names_tfidf(entities, keywords)
 
-        return {
+        results = {
             k:round(v, 4) for k,v in results.items()
         }
+
+        logger.debug(f'reranking ({self.args.reranker}): [keywords: {keywords}, reranked_entity_names: {results}]')
+
+        return results
         
     def _get_entities_by_keyword_match(self, keywords:List[str], query_bundle:QueryBundle) -> List[ScoredEntity]:
         initial_entity_provider = EntityProvider(self.graph_store, self.args, self.filter_config)
@@ -181,8 +181,8 @@ class EntityVSSProvider(EntityProviderBase):
             all_entities_map.update({e.entity.entityId:e for e in entities})
 
         add_to_entities_map(self._get_entities_by_keyword_match(keywords, query_bundle))
-        add_to_entities_map(self._get_entities_for_values([query_bundle.query_str])[:self.args.ec_max_entities])
-        add_to_entities_map(self._get_entities_for_values(keywords)[:self.args.ec_max_entities])
+        add_to_entities_map(self._get_entities_for_values([query_bundle.query_str]))
+        add_to_entities_map(self._get_entities_for_values(keywords))
         
         all_reranked_entity_names = self._get_reranked_entity_names(list(all_entities_map.values()), [query_bundle.query_str] + keywords)
         all_reranked_entities = self._get_reranked_entities(list(all_entities_map.values()), all_reranked_entity_names)
