@@ -1,6 +1,6 @@
 [[Home](./)]
 
-## Configuring and Tuning Traversal-Based Search
+## Traversal-Based Search Configuration
 
 ### Topics
 
@@ -39,7 +39,7 @@
 
 ### Overview
 
-You can customize traversal-based search operations to better suit your specific application, dataset, and query types. The following configuration options are available to help you optimize search performance:
+You can use the traversal-based search configuration options to customize traversal-based search operations to better suit your specific application, dataset, and query types. The following configuration options are available to help you optimize search performance:
 
   - [**Search results configuration**](#search-results-configuration) Adjust the number of search results and statements returned and set scoring thresholds to filter out low-quality statements and results
   - [**Retriever selection**](#retriever-selection) Specify which retrievers to use when fetching information
