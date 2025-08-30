@@ -163,7 +163,7 @@ class EntityContextProvider():
 
         def walk_tree_ex(current_context, d):
             if not d:
-               all_contexts_map[context_id(current_context)] = current_context
+                all_contexts_map[context_id(current_context)] = current_context
             
             for entity_id, children in d.items():
                 context = [c for c in current_context]
@@ -194,7 +194,7 @@ class EntityContextProvider():
 
         logger.debug(f'deduped_contexts: {deduped_contexts}')
 
-        ordered_contexts = self.order_contexts(deduped_contexts)
+        ordered_contexts = self.order_context_subtrees(deduped_contexts)
 
         logger.debug(f'ordered_contexts: {ordered_contexts}')
 
@@ -257,6 +257,25 @@ class EntityContextProvider():
         return [
             context_map[k]
             for k, _ in sorted(scored_context_map.items(), key=lambda item: item[1], reverse=True)
+        ]
+    
+    def order_context_subtrees(self, contexts:List[List[ScoredEntity]]) ->  List[List[ScoredEntity]]:
+
+        context_subtree_map = {}
+
+        for context in contexts:
+            root_entity_id = context[0].entity.entityId
+            if root_entity_id not in context_subtree_map:
+                context_subtree_map[root_entity_id] = []
+            context_subtree_map[root_entity_id].append(context)
+
+        for root_entity_id in context_subtree_map.keys():
+             context_subtree_map[root_entity_id] = self.order_contexts(context_subtree_map[root_entity_id])
+
+        return [
+            context
+            for contexts in context_subtree_map.values()
+            for context in contexts
         ]
     
     def filter_entities(self, entities:List[ScoredEntity]) -> List[ScoredEntity]:

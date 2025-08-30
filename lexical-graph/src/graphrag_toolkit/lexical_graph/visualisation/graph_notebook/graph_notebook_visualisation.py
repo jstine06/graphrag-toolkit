@@ -6,10 +6,12 @@ import pandas as pd
 import json
 
 from json import JSONDecodeError
-from typing import Optional
+from typing import Optional, List
 
 from graphrag_toolkit.lexical_graph.retrieval.model import SearchResult, EntityContexts
 from graphrag_toolkit.lexical_graph.tenant_id import to_tenant_id
+from graphrag_toolkit.lexical_graph.metadata import FilterConfig
+from graphrag_toolkit.lexical_graph.storage.graph.graph_utils import filter_config_to_opencypher_filters, search_string_from
 
 LABELS_TO_REFORMAT = ['Source', 'Chunk', 'Topic', 'Statement', 'Fact', 'Entity']
 
@@ -165,6 +167,49 @@ def get_schema_query(tenant_id):
 
     return cypher
 
+def get_sources_query(tenant_id, source_ids:Optional[List[str]]=None, filter_config:Optional[FilterConfig]=None):
+
+    label = tenant_id.format_label('__Source__')
+    
+    where_clauses = []
+    
+    if filter_config:
+        where_clauses.append(filter_config_to_opencypher_filters(filter_config))
+    if source_ids:
+        where_clauses.append(f'(id(source) in {str(source_ids)})')
+    
+    where_clause = '' if not where_clauses else f"WHERE {' OR '.join(where_clauses)}"
+        
+          
+    cypher = f'''MATCH p=(source:{label})<-[:`__EXTRACTED_FROM__`]-()
+    <-[:`__MENTIONED_IN__`]-()<-[:`__BELONGS_TO__`]-()
+    <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-()
+    {where_clause}
+    RETURN p LIMIT 1000
+    '''
+    
+    return cypher
+
+def get_entity_paths_query(tenant_id, entity_1, entity_2:Optional[str]=None, depth:Optional[int]=3):
+
+    label = tenant_id.format_label('__Entity__')
+
+    if entity_2:
+        cypher = f"""MATCH p=(e1:{label})-[:`__RELATION__`*1..{depth}]-(e2:{label})
+        WHERE e1.search_str starts with '{search_string_from(entity_1)}'
+        AND e2.search_str starts with '{search_string_from(entity_2)}'
+        AND e1 <> e2
+        RETURN p LIMIT 1000
+        """
+    else:
+        cypher = f"""MATCH p=(e1:{label})-[:`__RELATION__`*1..{depth}]-()
+        WHERE e1.search_str starts with '{search_string_from(entity_1)}'
+        RETURN p LIMIT 1000
+        """
+
+    
+    return cypher
+
 class GraphNotebookVisualisation():
 
     def __init__(self, display_edge_labels=False, formatting_config=None, nb_classic=False):
@@ -278,46 +323,22 @@ class GraphNotebookVisualisation():
 
         return g
 
-    def display_schema(self, tenant_id:Optional[str]=None):
-        
-        formatting_config = '''
-        {
-            "edges": {
-                "color": {
-                "inherit": false
-                },
-                "smooth": {
-                "enabled": true,
-                "type": "dynamic"
-                },
-                "arrows": {
-                "to": {
-                    "enabled": true,
-                    "type": "arrow"
-                }
-                },
-                "font": {
-                "face": "courier new"
-                }
-            }
-        }
-        '''
-
-        g = self._get_graph(formatting_config)
-
-        line = f'query  -d value --edge-display-property value -rel 25 -l 25'
-
-        cypher = get_schema_query(to_tenant_id(tenant_id))
-        
-        g.oc(line, cell=cypher, local_ns={}) 
-
-
     def _display(self, cypher):
         
         face = 'FontAwesome' if self.nb_classic else "'Font Awesome 5 Free'"
         
         formatting_config = self.formatting_config or f'''
-        {{
+        {{  
+          "nodes": {{
+               "shape": "icon",
+               "icon": {{
+                 "face": "{face}",
+                 "weight": "bold",
+                 "code": "\uf1b2",
+                 "color": "#ff9900",
+                 "size": 80
+               }}
+          }},
           "groups": {{
             "Source": {{
               "shape": "icon",
@@ -405,3 +426,53 @@ class GraphNotebookVisualisation():
         cypher = get_entity_context_query(query_parameters)
         
         self._display(cypher)
+        
+    def display_sources(self, source_ids:Optional[List[str]]=None, filter_config:Optional[FilterConfig]=None, tenant_id:Optional[str]=None):
+
+        cypher = get_sources_query(to_tenant_id(tenant_id), source_ids, filter_config)
+        
+        self._display(cypher)
+        
+    def display_entity_paths(self, entity_1:str, entity_2:Optional[str]=None, tenant_id:Optional[str]=None, depth:Optional[int]=3):
+        
+        if depth < 1 or depth > 3:
+            raise ValueError('depth must be between 1-3')
+           
+        cypher = get_entity_paths_query(to_tenant_id(tenant_id), entity_1, entity_2, depth)
+        
+        self._display(cypher)
+        
+    def display_schema(self, tenant_id:Optional[str]=None):
+        
+        formatting_config = '''
+        {
+            "edges": {
+                "color": {
+                "inherit": false
+                },
+                "smooth": {
+                "enabled": true,
+                "type": "dynamic"
+                },
+                "arrows": {
+                "to": {
+                    "enabled": true,
+                    "type": "arrow"
+                }
+                },
+                "font": {
+                "face": "courier new"
+                }
+            }
+        }
+        '''
+
+        g = self._get_graph(formatting_config)
+
+        line = f'query  -d value --edge-display-property value -rel 25 -l 25'
+
+        cypher = get_schema_query(to_tenant_id(tenant_id))
+        
+        g.oc(line, cell=cypher, local_ns={}) 
+        
+       
