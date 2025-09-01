@@ -75,7 +75,7 @@ class BaseNeptuneGraphStore(GraphStore):
             '''
         else:
             query = f'''
-                    MATCH (n:{node_type})
+                    MATCH (n:`{node_type}`)
                     '''
         if self.node_type_to_property_mapping:
             query += '''
@@ -354,7 +354,7 @@ class NeptuneAnalyticsGraphStore(BaseNeptuneGraphStore):
         ids, texts_to_embed = ({}, {}) if group_by_node_label else ([], [])
         for node_type, node_properties in node_embedding_text_props.items():
             gather_nodes_query = f'''
-                                MATCH (n:{node_type})
+                                MATCH (n:`{node_type}`)
                                 RETURN properties(n) as properties, ID(n) as node
                                 '''
             response = self.execute_query(gather_nodes_query)
@@ -442,7 +442,7 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
         # quick effort at node label details, sample 100 nodes per type and get their distinct property keys
         summary["nodeLabelDetails"] = {}
         for ntype in summary["nodeLabels"]:
-            oc_query = f"""MATCH (n:{ntype})
+            oc_query = f"""MATCH (n:`{ntype}`)
                            WITH n LIMIT 100
                            UNWIND keys(n) AS key
                            RETURN COLLECT(DISTINCT key) AS properties"""
@@ -451,7 +451,7 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
         # quick effort at edge label details
         summary["edgeLabelDetails"] = {}
         for etype in summary["edgeLabels"]:
-            oc_query = f"""MATCH (startNode)-[r:{etype}]->(endNode)
+            oc_query = f"""MATCH (startNode)-[r:`{etype}`]->(endNode)
                            WITH r LIMIT 100
                            UNWIND keys(r) AS key
                            RETURN COLLECT(DISTINCT key) AS properties"""
