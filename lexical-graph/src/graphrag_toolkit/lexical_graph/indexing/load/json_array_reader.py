@@ -78,7 +78,7 @@ class JSONArrayReader(BaseReader):
             metadata from individual JSON objects. If None, metadata must come
             from extra_info or defaults to an empty dictionary.
     """
-    def __init__(self, ensure_ascii:bool=False, text_fn:Optional[TextExtractorFunction]=None, metadata_fn=Optional[MetadataExtractorFunction]):
+    def __init__(self, ensure_ascii:bool=False, text_fn:Optional[TextExtractorFunction]=None, metadata_fn:Optional[MetadataExtractorFunction]=None):
         """
         Initializes an instance of the class with options to configure ASCII handling,
         text extraction, and metadata extraction.
