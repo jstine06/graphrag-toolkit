@@ -14,9 +14,9 @@ from graphrag_toolkit.lexical_graph.config import GraphRAGConfig
 from graphrag_toolkit.lexical_graph.utils import LLMCache, LLMCacheType
 from graphrag_toolkit.lexical_graph.retrieval.post_processors.bedrock_context_format import BedrockContextFormat
 from graphrag_toolkit.lexical_graph.retrieval.model import EntityContexts
-from graphrag_toolkit.lexical_graph.retrieval.retrievers import CompositeTraversalBasedRetriever, SemanticGuidedRetriever, QueryModeRetriever
-from graphrag_toolkit.lexical_graph.retrieval.retrievers import StatementCosineSimilaritySearch, KeywordRankingSearch, SemanticBeamGraphSearch
-from graphrag_toolkit.lexical_graph.retrieval.retrievers import WeightedTraversalBasedRetrieverType, SemanticGuidedRetrieverType
+from graphrag_toolkit.lexical_graph.retrieval.retrievers import CompositeTraversalBasedRetriever, SemanticGuidedChunkRetriever, QueryModeRetriever
+from graphrag_toolkit.lexical_graph.retrieval.retrievers import ChunkCosineSimilaritySearch, SemanticChunkBeamGraphSearch
+from graphrag_toolkit.lexical_graph.retrieval.retrievers import WeightedTraversalBasedRetrieverType, SemanticGuidedChunkRetrieverType
 from graphrag_toolkit.lexical_graph.storage import GraphStoreFactory, GraphStoreType
 from graphrag_toolkit.lexical_graph.storage import VectorStoreFactory, VectorStoreType
 from graphrag_toolkit.lexical_graph.storage.graph import MultiTenantGraphStore
@@ -137,36 +137,11 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
     def for_semantic_guided_search(graph_store: GraphStoreType,
                                    vector_store: VectorStoreType,
                                    tenant_id: Optional[TenantIdType] = None,
-                                   retrievers: Optional[List[SemanticGuidedRetrieverType]] = None,
+                                   retrievers: Optional[List[SemanticGuidedChunkRetrieverType]] = None,
                                    post_processors: Optional[PostProcessorsType] = None,
                                    filter_config: FilterConfig = None,
                                    **kwargs):
-        """
-        Creates and configures an instance of `LexicalGraphQueryEngine` for semantic-guided
-        search. This method facilitates the setup of a multi-tenant graph store and vector
-        store, along with specified or default retrievers, filter configurations, and
-        optional post-processors for the search process. This is useful for performing
-        semantic-guided search using a combination of retrievers and post processors
-        tailored for a specific tenant or configuration.
 
-        Args:
-            graph_store: The base graph store instance to be wrapped for multi-tenant usage.
-            vector_store: The base vector store instance to be wrapped for multi-tenant usage.
-            tenant_id: An optional unique identifier for the tenant. If not provided, a
-            default tenant ID is derived.
-            retrievers: An optional list of retrievers for semantic-guided search. If not
-            supplied, a default set of retrievers is created.
-            post_processors: An optional collection of post-processors to apply after
-            retrieving search results.
-            filter_config: The filtering configuration options to apply within the search
-            process. A default configuration is used if none is provided.
-            **kwargs: Additional optional keyword arguments to pass to `SemanticGuidedRetriever`
-            and `LexicalGraphQueryEngine`.
-
-        Returns:
-            LexicalGraphQueryEngine: A configured instance for performing semantic-guided search
-            on the provided graph and vector store.
-        """
         tenant_id = to_tenant_id(tenant_id)
         filter_config = filter_config or FilterConfig()
 
@@ -183,19 +158,13 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
         )
 
         retrievers = retrievers or [
-            StatementCosineSimilaritySearch(
+            ChunkCosineSimilaritySearch(
                 vector_store=vector_store,
                 graph_store=graph_store,
-                top_k=50,
+                top_k=5,
                 filter_config=filter_config
             ),
-            KeywordRankingSearch(
-                vector_store=vector_store,
-                graph_store=graph_store,
-                max_keywords=10,
-                filter_config=filter_config
-            ),
-            SemanticBeamGraphSearch(
+            SemanticChunkBeamGraphSearch(
                 vector_store=vector_store,
                 graph_store=graph_store,
                 max_depth=8,
@@ -204,7 +173,7 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
             )
         ]
 
-        retriever = SemanticGuidedRetriever(
+        retriever = SemanticGuidedChunkRetriever(
             vector_store=vector_store,
             graph_store=graph_store,
             retrievers=retrievers,
