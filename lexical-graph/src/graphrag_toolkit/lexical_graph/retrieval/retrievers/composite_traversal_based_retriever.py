@@ -172,6 +172,7 @@ class CompositeTraversalBasedRetriever(TraversalBasedBaseRetriever):
             #sub_args['limit_per_query'] = weighted_arg(self.args.query_limit, wr.weight, 1)
             sub_args['max_search_results'] = math.ceil(self.args.max_search_results * wr.weight)
             sub_args['reranker'] = 'tfidf'
+            sub_args['enrich_query'] = False
 
             retriever = (wr.retriever if isinstance(wr.retriever, TraversalBasedBaseRetriever) 
                          else wr.retriever(
