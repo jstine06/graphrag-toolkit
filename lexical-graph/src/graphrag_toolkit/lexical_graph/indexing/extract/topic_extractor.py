@@ -218,7 +218,8 @@ class TopicExtractor(BaseExtractor):
                 PromptTemplate(template=self.prompt_template),
                 text=text,
                 preferred_entity_classifications=format_list(preferred_entity_classifications),
-                preferred_topics=format_list(preferred_topics)
+                preferred_topics=format_list(preferred_topics),
+                exclude_cache_keys=['preferred_entity_classifications', 'preferred_topics']
             )
         
         coro = asyncio.to_thread(blocking_llm_call)
