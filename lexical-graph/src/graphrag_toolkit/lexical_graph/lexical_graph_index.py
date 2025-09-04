@@ -597,6 +597,7 @@ class LexicalGraphIndex():
             build_filters=build_config.build_filters,
             source_metadata_formatter=build_config.source_metadata_formatter,
             include_domain_labels=build_config.include_domain_labels,
+            include_local_entities=build_config.include_local_entities,
             tenant_id=self.tenant_id,
             **kwargs
         )

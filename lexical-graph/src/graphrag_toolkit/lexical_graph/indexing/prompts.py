@@ -160,9 +160,9 @@ Try to capture as much information from the text as possible without sacrificing
       - Qualitative attributes: descriptions, roles, characteristics, properties (e.g., color, occupation, nationality, season).
    2. Represent entity attributes in the format: entity|ATTRIBUTE_NAME|attribute
    3. Ensure consistency and generality in naming attributes:
-      - Use general and timeless attribute names (e.g., 'VALUE' instead of 'HAD_VALUE').
+      - Use general and timeless attribute names (e.g., 'HAS_VALUE' instead of 'HAD_VALUE').
       - Avoid overly specific or momentary attribute names.
-      - Use one- or two-word attribute names.
+      - Use one- or two-word attribute names. Indicate belonging or ownership (e.g., 'HAS_NAME' instead of 'NAME').
    4. Attribute names should be all uppercase, with underscores instead of spaces (e.g. 'DESCRIBED_BY')
 
    Example: John Doe|OCCUPATION|software engineer
