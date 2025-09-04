@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import os
 from typing import Dict, List, Optional, Protocol, Any
 
 from llama_index.core.readers.base import BaseReader
@@ -135,6 +136,11 @@ class JSONArrayReader(BaseReader):
         Returns:
             A list of `Document` objects, where each object contains text content and associated metadata.
         """
+
+        filename = os.path.basename(input_file)
+        if 'filename' not in extra_info:
+            extra_info['filename'] = filename
+
         with open(input_file, encoding='utf-8') as f:
             json_data = json.load(f)
             

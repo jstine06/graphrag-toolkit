@@ -237,14 +237,17 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
         )
 
         self.context_format = kwargs.get('context_format', 'json')
+        
+        no_cache = kwargs.pop('no_cache', False)
+        enable_cache = False if no_cache else GraphRAGConfig.enable_cache
 
         self.llm = llm if llm and isinstance(llm, LLMCache) else LLMCache(
             llm=llm or GraphRAGConfig.response_llm,
-            enable_cache=GraphRAGConfig.enable_cache
+            enable_cache=enable_cache
         )
         self.streaming = streaming
 
-        prompt_provider = kwargs.pop("prompt_provider", None)
+        prompt_provider = kwargs.pop('prompt_provider', None)
         
         if prompt_provider is None:
             prompt_provider = PromptProviderFactory.get_provider()
