@@ -84,7 +84,7 @@ You are a top-tier algorithm designed for extracting information in structured f
 10. Prioritize completeness and accuracy.
 
 # Output Format:
-- Preface the list with a descriptive title that summarizes the content.
+- Preface the list with a concise, specific title.
 - Present each proposition on a new line.
 - Ensure each proposition is unique: do not repeat propositions.
 - Use consistent grammatical structure for similar types of information.
