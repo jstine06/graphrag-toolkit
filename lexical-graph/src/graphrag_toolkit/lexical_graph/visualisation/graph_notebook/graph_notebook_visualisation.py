@@ -249,6 +249,16 @@ def get_entity_paths_query(tenant_id, entity_1, entity_2:Optional[str]=None, dep
     
     return cypher
 
+def get_entities_query(tenant_id):
+
+    label = tenant_id.format_label('__Entity__')
+
+    cypher = f"""MATCH p=(:{label})-[:`__RELATION__`]-()
+    RETURN p LIMIT 1000
+    """
+
+    return cypher
+
 class GraphNotebookVisualisation():
 
     def __init__(self, display_edge_labels=False, formatting_config=None, nb_classic=False):
@@ -362,7 +372,7 @@ class GraphNotebookVisualisation():
 
         return g
 
-    def _display(self, cypher):
+    def _display(self, cypher, edge_display_property:str=None):
         
         face = 'FontAwesome' if self.nb_classic else "'Font Awesome 5 Free'"
         
@@ -445,8 +455,11 @@ class GraphNotebookVisualisation():
 
         g = self._get_graph(formatting_config)
 
-        edge_label_length = 25 if self.display_edge_labels else 0
-        line = f'query -d value -l 25 -rel {edge_label_length}'
+        if edge_display_property:
+            line = f'query -d value -l 25 -rel 25 --edge-display-property {edge_display_property}'
+        else:
+            edge_label_length = 25 if self.display_edge_labels else 0
+            line = f'query -d value -l 25 -rel {edge_label_length}'
         
         g.oc(line, cell=cypher, local_ns={}) 
     
@@ -480,6 +493,11 @@ class GraphNotebookVisualisation():
         cypher = get_entity_paths_query(to_tenant_id(tenant_id), entity_1, entity_2, depth)
         
         self._display(cypher)
+
+    def display_entities(self, tenant_id:Optional[str]=None):
+        cypher = get_entities_query(to_tenant_id(tenant_id))
+        
+        self._display(cypher, 'value')
         
     def display_schema(self, tenant_id:Optional[str]=None):
         
