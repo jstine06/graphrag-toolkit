@@ -61,7 +61,7 @@ class ProcessorArgs():
         self.debug_results = kwargs.get('debug_results', [])
         self.reranker = kwargs.get('reranker', 'tfidf')
         self.max_statements = kwargs.get('max_statements', 100)
-        self.max_search_results = kwargs.get('max_search_results', 5)
+        self.max_search_results = kwargs.get('max_search_results', 10)
         self.max_statements_per_topic = kwargs.get('max_statements_per_topic', 10)
         self.max_keywords = kwargs.get('max_keywords', 10)
         self.max_subqueries = kwargs.get('max_subqueries', 2) 

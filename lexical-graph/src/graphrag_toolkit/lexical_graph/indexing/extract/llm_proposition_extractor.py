@@ -196,7 +196,8 @@ propositions: {proposition_collection}
             return self.llm.predict(
                 PromptTemplate(template=self.prompt_template),
                 text=text,
-                source_info=source_info
+                source_info=source_info,
+                exclude_cache_keys=['source_info']
             )
         
         coro = asyncio.to_thread(blocking_llm_call)
