@@ -47,7 +47,10 @@ class QueryEnricher():
         
         scored_statements = score_values_with_tfidf(list(statements.keys()), [query_bundle.query_str], 1)
 
-        return statements[list(scored_statements.keys())[0]]
+        if scored_statements:
+            return statements[list(scored_statements.keys())[0]]
+        else:
+            return None
     
     def _get_entities_for_statement(self, statement_id:str) -> List[str]:
         
@@ -78,6 +81,11 @@ class QueryEnricher():
             return query_bundle
 
         top_statement_id = self._get_top_statement_id(query_bundle)
+
+        if not top_statement_id:
+            logger.debug(f'No statements found, so returning original query')
+            return query_bundle
+        
         entities = self._get_entities_for_statement(top_statement_id)
 
         if entities:
