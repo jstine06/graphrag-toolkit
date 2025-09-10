@@ -150,7 +150,7 @@ class TopicNodeBuilder(NodeBuilder):
                 if self.build_filters.ignore_topic(topic.value):
                     continue
                 
-                topic_id =  self.id_generator.create_node_id('topic', source_id, topic.value) # topic identity defined by source, not chunk, so that we can connect same topic to multiple chunks in scope of single source
+                topic_id =  self.id_generator.create_topic_id(source_id, topic.value) # topic identity defined by source, not chunk, so that we can connect same topic to multiple chunks in scope of single source
 
                 if topic_id not in topic_nodes:
                     

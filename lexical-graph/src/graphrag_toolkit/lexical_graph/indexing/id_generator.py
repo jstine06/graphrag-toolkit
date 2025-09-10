@@ -93,8 +93,24 @@ class IdGenerator(BaseModel):
             str: The tenant-specific rewritten ID.
         """
         return self.tenant_id.rewrite_id(id_value)
+    
+    def create_topic_id(self, source_id:str, topic_value:str) -> str:
+        return self._create_node_id('topic', source_id, topic_value)
+    
+    def create_statement_id(self, topic_id:str, statement_value:str) -> str:
+        return self._create_node_id('statement', topic_id, statement_value)
+    
+    def create_fact_id(self, fact_value:str) -> str:
+        return self._create_node_id('fact', fact_value)
+    
+    def create_local_entity_id(self, source_id:str, entity_value:str) -> str:
+        return self._create_node_id('local-entity', entity_value, source_id)
+    
+    def create_entity_id(self, entity_value:str, entity_classification:str) -> str:
+        #return self._create_node_id('entity', entity_value, entity_classification)
+        return self.create_node_id('entity', entity_value)
 
-    def create_node_id(self, node_type:str, v1:str, v2:Optional[str]=None) -> str:
+    def _create_node_id(self, node_type:str, v1:str, v2:Optional[str]=None) -> str:
         """
         Creates a unique identifier for a specific node based on the provided parameters.
 
