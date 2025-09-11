@@ -43,6 +43,7 @@ DEFAULT_BUILD_BATCH_WRITE_SIZE = 25
 DEFAULT_BATCH_WRITES_ENABLED = True
 DEFAULT_INCLUDE_DOMAIN_LABELS = False
 DEFAULT_INCLUDE_LOCAL_ENTITIES = False
+DEFAULT_INCLUDE_CLASSIFICATION_IN_ENTITY_ID = True
 DEFAULT_ENABLE_CACHE = False
 DEFAULT_METADATA_DATETIME_SUFFIXES = ['_date', '_datetime']
 
@@ -277,6 +278,7 @@ class _GraphRAGConfig:
     _batch_writes_enabled: Optional[bool] = None
     _include_domain_labels: Optional[bool] = None
     _include_local_entities: Optional[bool] = None
+    _include_classification_in_entity_id: Optional[bool] = None
     _enable_cache: Optional[bool] = None
     _metadata_datetime_suffixes: Optional[List[str]] = None
 
@@ -759,6 +761,17 @@ class _GraphRAGConfig:
     @include_local_entities.setter
     def include_local_entities(self, include_local_entities: bool) -> None:
         self._include_local_entities = include_local_entities
+
+    #_include_classification_in_entity_id
+    @property
+    def include_classification_in_entity_id(self) -> bool:   
+        if self._include_classification_in_entity_id is None:
+            self.include_classification_in_entity_id = string_to_bool(os.environ.get('INCLUDE_CLASSIFICATION_IN_ENTITY_ID'), DEFAULT_INCLUDE_CLASSIFICATION_IN_ENTITY_ID)
+        return self._include_classification_in_entity_id
+
+    @include_classification_in_entity_id.setter
+    def include_classification_in_entity_id(self, include_classification_in_entity_id: bool) -> None:
+        self._include_classification_in_entity_id = include_classification_in_entity_id
 
     @property
     def enable_cache(self) -> bool:

@@ -3,7 +3,7 @@
 
 from typing import Optional
 
-from graphrag_toolkit.lexical_graph import TenantId
+from graphrag_toolkit.lexical_graph import TenantId, GraphRAGConfig
 from graphrag_toolkit.lexical_graph.indexing.utils.hash_utils import get_hash
 
 from llama_index.core.bridge.pydantic import BaseModel
@@ -23,9 +23,13 @@ class IdGenerator(BaseModel):
             tenant-specific IDs and rewriting ID values.
     """
     tenant_id:TenantId
+    include_classification_in_entity_id:bool
     
-    def __init__(self, tenant_id:TenantId=None):
-        super().__init__(tenant_id=tenant_id or TenantId())
+    def __init__(self, tenant_id:TenantId=None, include_classification_in_entity_id:bool=None):
+        super().__init__(
+            tenant_id=tenant_id or TenantId(),
+            include_classification_in_entity_id=include_classification_in_entity_id or GraphRAGConfig.include_classification_in_entity_id
+        )
 
     def _get_hash(self, s):
         """
@@ -107,8 +111,10 @@ class IdGenerator(BaseModel):
         return self._create_node_id('local-entity', entity_value, source_id)
     
     def create_entity_id(self, entity_value:str, entity_classification:str) -> str:
-        #return self._create_node_id('entity', entity_value, entity_classification)
-        return self.create_node_id('entity', entity_value)
+        if self.include_classification_in_entity_id:
+            return self._create_node_id('entity', entity_value, entity_classification)
+        else:
+            return self._create_node_id('entity', entity_value)
 
     def _create_node_id(self, node_type:str, v1:str, v2:Optional[str]=None) -> str:
         """

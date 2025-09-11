@@ -115,6 +115,7 @@ class ExtractionPipeline():
                checkpoint:Optional[Checkpoint]=None,
                tenant_id:Optional[TenantId]=None,
                extraction_filters:Optional[FilterConfig]=None,
+               include_classification_in_entity_id:Optional[bool]=None,
                **kwargs:Any):
         """
         Creates an instance of the extraction pipeline, configured with specified components,
@@ -162,6 +163,7 @@ class ExtractionPipeline():
                 checkpoint=checkpoint,
                 tenant_id=tenant_id,
                 extraction_filters=extraction_filters,
+                include_classification_in_entity_id=include_classification_in_entity_id,
                 **kwargs
             ).extract
         )
@@ -176,6 +178,7 @@ class ExtractionPipeline():
                  checkpoint:Optional[Checkpoint]=None,
                  tenant_id:Optional[TenantId]=None,
                  extraction_filters:Optional[FilterConfig]=None,
+                 include_classification_in_entity_id:Optional[bool]=None,
                  **kwargs:Any):
         """
         Initializes the extraction pipeline with provided components, configurations, and optional
@@ -225,10 +228,17 @@ class ExtractionPipeline():
         components = components or []
         num_workers = num_workers or GraphRAGConfig.extraction_num_workers
         batch_size = batch_size or GraphRAGConfig.extraction_batch_size
+        include_classification_in_entity_id = include_classification_in_entity_id or GraphRAGConfig.include_classification_in_entity_id
 
         for c in components:
             if isinstance(c, BaseExtractor):
                 c.show_progress = show_progress
+
+        id_generator=IdGenerator(
+            tenant_id=tenant_id, 
+            include_classification_in_entity_id=include_classification_in_entity_id
+        )
+        
 
         def add_id_rewriter(c):
             """
@@ -261,7 +271,7 @@ class ExtractionPipeline():
             """
             if isinstance(c, TextSplitter):
                 logger.debug(f'Wrapping {type(c).__name__} with IdRewriter')
-                return IdRewriter(inner=c, id_generator=IdGenerator(tenant_id=tenant_id))
+                return IdRewriter(inner=c, id_generator=id_generator)
             else:
                 return c
             
@@ -269,7 +279,7 @@ class ExtractionPipeline():
         
         if not any([isinstance(c, IdRewriter) for c in components]):
             logger.debug(f'Adding DocToNodes to components')
-            components.insert(0, IdRewriter(inner=DocsToNodes(), id_generator=IdGenerator(tenant_id=tenant_id)))
+            components.insert(0, IdRewriter(inner=DocsToNodes(), id_generator=id_generator))
             
         if checkpoint:
             components = [checkpoint.add_filter(c) for c in components]
@@ -282,7 +292,7 @@ class ExtractionPipeline():
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.show_progress = show_progress
-        self.id_rewriter = IdRewriter(id_generator=IdGenerator(tenant_id=tenant_id))
+        self.id_rewriter = IdRewriter(id_generator=id_generator)
         self.extraction_filters = extraction_filters or FilterConfig()
         self.pipeline_kwargs = kwargs
     

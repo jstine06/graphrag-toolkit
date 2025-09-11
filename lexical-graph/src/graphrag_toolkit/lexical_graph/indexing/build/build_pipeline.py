@@ -70,6 +70,7 @@ class BuildPipeline():
                source_metadata_formatter:Optional[SourceMetadataFormatter]=None,
                include_domain_labels:Optional[bool]=None,
                include_local_entities:Optional[bool]=None,
+               include_classification_in_entity_id:Optional[bool]=None,
                tenant_id:Optional[TenantId]=None,
                **kwargs:Any
             ):
@@ -126,6 +127,7 @@ class BuildPipeline():
                 source_metadata_formatter=source_metadata_formatter,
                 include_domain_labels=include_domain_labels,
                 include_local_entities=include_local_entities,
+                include_classification_in_entity_id=include_classification_in_entity_id,
                 tenant_id=tenant_id,
                 **kwargs
             ).build
@@ -144,6 +146,7 @@ class BuildPipeline():
                  source_metadata_formatter:Optional[SourceMetadataFormatter]=None,
                  include_domain_labels:Optional[bool]=None,
                  include_local_entities:Optional[bool]=None,
+                 include_classification_in_entity_id:Optional[bool]=None,
                  tenant_id:Optional[TenantId]=None,
                  **kwargs:Any
             ):
@@ -190,6 +193,7 @@ class BuildPipeline():
         batch_write_size = batch_write_size or GraphRAGConfig.build_batch_write_size
         include_domain_labels = include_domain_labels or GraphRAGConfig.include_domain_labels
         include_local_entities = include_local_entities or GraphRAGConfig.include_local_entities
+        include_classification_in_entity_id = include_classification_in_entity_id or GraphRAGConfig.include_classification_in_entity_id
         source_metadata_formatter = source_metadata_formatter or DefaultSourceMetadataFormatter()
         
         for c in components:
@@ -222,7 +226,10 @@ class BuildPipeline():
             builders=builders, 
             build_filters=build_filters, 
             source_metadata_formatter=source_metadata_formatter, 
-            id_generator=IdGenerator(tenant_id=tenant_id)
+            id_generator=IdGenerator(
+                tenant_id=tenant_id, 
+                include_classification_in_entity_id=include_classification_in_entity_id
+            )
         )
         self.node_filter = NodeFilter() if not checkpoint else checkpoint.add_filter(NodeFilter())
         self.pipeline_kwargs = kwargs
