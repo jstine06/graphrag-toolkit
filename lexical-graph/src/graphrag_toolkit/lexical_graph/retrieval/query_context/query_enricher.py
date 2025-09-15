@@ -21,12 +21,17 @@ class QueryEnricher():
 
 
     def _get_top_statement_id(self, query_bundle:QueryBundle) -> str:
+        
+        logger.debug(f"Query: {query_bundle.query_str}")
+        
         top_k_results = self.vector_store.get_index('chunk').top_k(query_bundle, 1)
         chunk_ids = [r['chunk']['chunkId'] for r in top_k_results]
         
+        logger.debug(f"Chunk ids: {chunk_ids}")
+        
         cypher = f'''
         // Get statements for top chunk
-        MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-()<-[:`__BELONGS_TO__`]-(s)
+        MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-(s:`__Statement__`)
         WHERE {self.graph_store.node_id("c.chunkId")} in $chunkIds 
         RETURN {{
             statement: s.value,
@@ -44,6 +49,8 @@ class QueryEnricher():
         statements = {
             r['result']['statement']:r['result']['statementId'] for r in results
         }
+
+        logger.debug(f"Top statements: {statements}")
         
         scored_statements = score_values_with_tfidf(list(statements.keys()), [query_bundle.query_str], 1)
 
@@ -87,6 +94,14 @@ class QueryEnricher():
             return query_bundle
         
         entities = self._get_entities_for_statement(top_statement_id)
+
+        query_str_lower = query_bundle.query_str.lower()
+
+        entities = [
+            entity
+            for entity in entities
+            if entity.lower() not in query_str_lower
+        ]
 
         if entities:
             query_str=f'{query_bundle.query_str} [{" ".join(entities)}]'

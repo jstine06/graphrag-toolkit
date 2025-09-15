@@ -119,7 +119,8 @@ Your input consists of carefully crafted propositions - simple, atomic, and deco
 Try to capture as much information from the text as possible without sacrificing accuracy. Do not add any information that is not explicitly mentioned in the input propositions.
 
 ## Topic Extraction:
-   1. Read the entire set of propositions and then extract a list of specific topics. Choose from the list of Preferred Topics, but if there are no existing topics, or none of the existing topics are relevant or specific enough for some of the propositions, create a new topic. Topic names should provide a clear, highly descriptive summary of the content.  
+   1. Read the entire set of propositions and then extract a list of specific topics. Topic names should provide a clear, highly descriptive summary of the content: look for propositions that can act as topic names, and use these verbatim if possible. 
+      - Compare each topic with the list of Preferred Topics. If a preferred topic matches the new topic in its meaning and specificity, use the preferred topic. Otherwise, use the new topic. 
    2. Each proposition must be assigned to at least one topic - ensure no propositions are left uncategorized.
    3. For each topic, perform the following Entity Extraction and Proposition Organization tasks.
 

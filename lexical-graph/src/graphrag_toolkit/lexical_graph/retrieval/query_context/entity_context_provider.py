@@ -9,6 +9,7 @@ from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.graph.graph_utils import node_result
 from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity, EntityContexts, EntityContext
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorArgs
+from graphrag_toolkit.lexical_graph.retrieval.utils.entity_utils import rerank_entities
 
 from llama_index.core.schema import QueryBundle
 
@@ -240,9 +241,11 @@ class EntityContextProvider():
     def order_contexts(self, contexts:List[List[ScoredEntity]]) ->  List[List[ScoredEntity]]:
 
         def score_context(context:List[ScoredEntity]):
-            score = statistics.mean([e.score for e in context])
+            #score = statistics.mean([e.score for e in context])
             reranking_score = statistics.mean([e.reranking_score for e in context])
-            return score/reranking_score if reranking_score > 0 else 0
+            #return score/reranking_score if reranking_score > 0 else 0
+            return reranking_score if reranking_score > 0 else 0
+        
         
         context_map = {
             ','.join([e.entity.value.lower() for e in context]):context
@@ -305,7 +308,7 @@ class EntityContextProvider():
 
         return filtered_entities
              
-    def get_entity_contexts(self, entities:List[ScoredEntity], query_bundle:QueryBundle)  -> EntityContexts:
+    def get_entity_contexts(self, entities:List[ScoredEntity], keywords:List[str], query_bundle:QueryBundle)  -> EntityContexts:
 
         start = time.time()
 
@@ -314,10 +317,12 @@ class EntityContextProvider():
             entity_id_context_tree = self._get_entity_id_context_tree(entities)
             
             neighbour_entities = self._get_neighbour_entities(
-                entity_id_context_tree=entity_id_context_tree,
+                entity_id_context_tree=entity_id_context_tree
             )
 
-            entities.extend(neighbour_entities)     
+            reranked_neighbour_entities = rerank_entities(neighbour_entities, query_bundle, keywords, self.args.reranker)
+
+            entities.extend(reranked_neighbour_entities)     
 
             entities = self.filter_entities(entities)
         
@@ -333,7 +338,7 @@ class EntityContextProvider():
         end = time.time()
         duration_ms = (end-start) * 1000
 
-        logger.debug(f"""Retrieved {len(entity_contexts)} entity contexts for '{query_bundle.query_str}' ({duration_ms:.2f} ms): {[
+        logger.debug(f"""Retrieved {len(entity_contexts)} entity contexts for '{query_bundle.query_str} {keywords}' ({duration_ms:.2f} ms): {[
             str([e.entity.value for e in context])
             for context in entity_contexts
         ]}""")

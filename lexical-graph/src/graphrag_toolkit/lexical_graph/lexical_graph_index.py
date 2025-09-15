@@ -17,8 +17,7 @@ from graphrag_toolkit.lexical_graph.indexing.extract import BatchConfig
 from graphrag_toolkit.lexical_graph.indexing import NodeHandler
 from graphrag_toolkit.lexical_graph.indexing import sink
 from graphrag_toolkit.lexical_graph.indexing.constants import PROPOSITIONS_KEY, DEFAULT_ENTITY_CLASSIFICATIONS
-from graphrag_toolkit.lexical_graph.indexing.extract import ScopedValueProvider, FixedScopedValueProvider, DEFAULT_SCOPE
-from graphrag_toolkit.lexical_graph.indexing.extract import GraphScopedValueStore, InMemoryScopedValueStore
+from graphrag_toolkit.lexical_graph.indexing.extract import PREFERRED_VALUES_PROVIDER_TYPE, default_preferred_values
 from graphrag_toolkit.lexical_graph.indexing.extract import LLMPropositionExtractor, BatchLLMPropositionExtractor
 from graphrag_toolkit.lexical_graph.indexing.extract import TopicExtractor, BatchTopicExtractor
 from graphrag_toolkit.lexical_graph.indexing.extract import ExtractionPipeline
@@ -31,7 +30,7 @@ from graphrag_toolkit.lexical_graph.indexing.build import BuildFilters
 from graphrag_toolkit.lexical_graph.indexing.build.null_builder import NullBuilder
 
 from llama_index.core.node_parser import SentenceSplitter, NodeParser
-from llama_index.core.schema import BaseNode, NodeRelationship
+from llama_index.core.schema import BaseNode
 
 DEFAULT_EXTRACTION_DIR = 'output'
 
@@ -66,13 +65,15 @@ class ExtractionConfig():
     """
     def __init__(self,
                  enable_proposition_extraction: bool = True,
-                 preferred_entity_classifications: List[str] = DEFAULT_ENTITY_CLASSIFICATIONS,
+                 preferred_entity_classifications: PREFERRED_VALUES_PROVIDER_TYPE = DEFAULT_ENTITY_CLASSIFICATIONS,
+                 preferred_topics: PREFERRED_VALUES_PROVIDER_TYPE = None,
                  infer_entity_classifications: Union[InferClassificationsConfig, bool] = False,
                  extract_propositions_prompt_template: Optional[str] = None,
                  extract_topics_prompt_template: Optional[str] = None,
                  extraction_filters: Optional[MetadataFiltersType] = None):
         self.enable_proposition_extraction = enable_proposition_extraction
         self.preferred_entity_classifications = preferred_entity_classifications if preferred_entity_classifications is not None else []
+        self.preferred_topics = preferred_topics if preferred_topics is not None else []
         self.infer_entity_classifications = infer_entity_classifications
         self.extract_propositions_prompt_template = extract_propositions_prompt_template
         self.extract_topics_prompt_template = extract_topics_prompt_template
@@ -176,29 +177,6 @@ class IndexingConfig():
 
 IndexingConfigType = Union[IndexingConfig, ExtractionConfig, BuildConfig, BatchConfig, List[NodeParser]]
 
-def get_topic_scope(node: BaseNode):
-    """
-    Retrieves the topic scope for a given node.
-
-    This function determines the topic scope of the provided node by examining
-    its SOURCE relationship. If the SOURCE relationship does not exist, it
-    returns a default scope constant. Otherwise, it retrieves the node ID from
-    the SOURCE relationship.
-
-    Args:
-        node (BaseNode): The node for which the topic scope is determined.
-
-    Returns:
-        str: The determined topic scope of the node. If no SOURCE relationship
-        exists, returns a default scope.
-    """
-    source = node.relationships.get(NodeRelationship.SOURCE, None)
-    if not source:
-        return DEFAULT_SCOPE
-    else:
-        return source.node_id
-    
-
 def to_indexing_config(indexing_config:Optional[IndexingConfigType]=None) -> IndexingConfig:
     if not indexing_config:
         return IndexingConfig()
@@ -217,10 +195,6 @@ def to_indexing_config(indexing_config:Optional[IndexingConfigType]=None) -> Ind
         return IndexingConfig(chunking=indexing_config)
     else:
         raise ValueError(f'Invalid indexing config type: {type(indexing_config)}')
-
-
-
-
 
 def to_indexing_config(indexing_config: Optional[IndexingConfigType] = None) -> IndexingConfig:
     """
@@ -370,62 +344,46 @@ class LexicalGraphIndex():
                     prompt_template=config.extraction.extract_propositions_prompt_template
                 ))
 
-        entity_classification_value_store = InMemoryScopedValueStore()
         entity_classification_provider = None
         topic_provider = None
-        
-        classification_label = 'EntityClassification'
-        classification_scope = DEFAULT_SCOPE
 
         if isinstance(self.graph_store, DummyGraphStore):
-            entity_classification_provider = FixedScopedValueProvider(
-                scoped_values={
-                    DEFAULT_SCOPE: config.extraction.preferred_entity_classifications
-                }
-            )
-            topic_provider = FixedScopedValueProvider(
-                scoped_values={
-                    DEFAULT_SCOPE: []
-                }
-            )
+            entity_classification_provider = default_preferred_values([])
+            topic_provider = default_preferred_values([])
         else:
 
-            entity_classification_value_store.save_scoped_values(
-                classification_label, 
-                classification_scope, 
-                config.extraction.preferred_entity_classifications
-            )
+            if config.extraction.infer_entity_classifications:
 
-            entity_classification_provider = ScopedValueProvider(
-                label=classification_label,
-                scoped_value_store=entity_classification_value_store
-            )
-            
-            topic_provider = ScopedValueProvider(
-                label='StatementTopic',
-                scoped_value_store=GraphScopedValueStore(graph_store=self.graph_store),
-                scope_func=get_topic_scope
-            )
+                if isinstance(config.extraction.infer_entity_classifications, InferClassificationsConfig):
+                    infer_config = config.extraction.infer_entity_classifications 
+                else:
+                    infer_config = InferClassificationsConfig()
 
-        if config.extraction.infer_entity_classifications:
-            if isinstance(config.extraction.infer_entity_classifications, InferClassificationsConfig):
-                infer_config = config.extraction.infer_entity_classifications 
-            else:
-                infer_config = InferClassificationsConfig()
+                default_classifications = []
 
-            pre_processors.append(InferClassifications(
-                    classification_label=classification_label,
-                    classification_scope=classification_scope,
-                    classification_store=entity_classification_value_store,
+                if isinstance(config.extraction.preferred_entity_classifications, list):
+                    default_classifications = config.extraction.preferred_entity_classifications
+
+                entity_classification_provider = InferClassifications(
                     splitter=SentenceSplitter(chunk_size=256, chunk_overlap=20) if config.chunking else None,
-                    default_classifications=config.extraction.preferred_entity_classifications,
+                    default_classifications=default_classifications,
                     num_samples=infer_config.num_samples,
                     num_iterations=infer_config.num_iterations,
                     num_classifications=infer_config.num_classifications,
-                    merge_action=infer_config.on_existing_classifications,
                     prompt_template=infer_config.prompt_template
                 )
-            )
+
+                pre_processors.append(entity_classification_provider)
+
+            elif isinstance(config.extraction.preferred_entity_classifications, list):
+                entity_classification_provider = default_preferred_values(config.extraction.preferred_entity_classifications)
+            else:
+                entity_classification_provider = config.extraction.preferred_entity_classifications
+
+            if isinstance(config.extraction.preferred_topics, list):
+                topic_provider = default_preferred_values(config.extraction.preferred_topics)
+            else:
+                topic_provider = config.extraction.preferred_topics
 
         topic_extractor = None
 

@@ -8,8 +8,7 @@ from .proposition_extractor import PropositionExtractor
 from .batch_llm_proposition_extractor import BatchLLMPropositionExtractor
 from .batch_topic_extractor import BatchTopicExtractor
 from .topic_extractor import TopicExtractor
-from .graph_scoped_value_store import GraphScopedValueStore
-from .scoped_value_provider import ScopedValueStore, ScopedValueProvider, FixedScopedValueProvider, InMemoryScopedValueStore, DEFAULT_SCOPE
 from .file_system_tap import FileSystemTap
 from .infer_classifications import InferClassifications
-from .infer_config import OnExistingClassifications, InferClassificationsConfig
+from .infer_config import InferClassificationsConfig
+from .preferred_values import PREFERRED_VALUES_PROVIDER_TYPE, PreferredValuesProvider, default_preferred_values
