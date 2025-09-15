@@ -790,43 +790,11 @@
 							],
 							"Resource": [
 								{
-									"Fn::Sub": "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0"
+									"Fn::Sub": "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0"
 								},
 								{
 									"Fn::Sub": [
-										"arn:${partition}:bedrock:${region}:${accountId}:inference-profile/${regionPrefix}.anthropic.claude-3-5-sonnet-20240620-v1:0",
-										{
-											"partition": {
-												"Ref": "AWS::Partition"
-											},
-											"region": {
-												"Ref": "AWS::Region"
-											},
-											"accountId": {
-												"Ref": "AWS::AccountId"
-											},
-											"regionPrefix": {
-												"Fn::Select": [
-													0,
-													{
-														"Fn::Split": [
-															"-",
-															{
-																"Ref": "AWS::Region"
-															}
-														]
-													}
-												]
-											}
-										}
-									]
-								},
-								{
-									"Fn::Sub": "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"
-								},
-								{
-									"Fn::Sub": [
-										"arn:${partition}:bedrock:${region}:${accountId}:inference-profile/${regionPrefix}.anthropic.claude-3-5-sonnet-20241022-v2:0",
+										"arn:${partition}:bedrock:${region}:${accountId}:inference-profile/${regionPrefix}.anthropic.claude-3-5-haiku-20241022-v1:0",
 										{
 											"partition": {
 												"Ref": "AWS::Partition"
@@ -1053,7 +1021,7 @@
 										"echo \"export EXTRACTION_MODEL=",
 										{
 											"Fn::Sub": [
-												"${regionPrefix}.anthropic.claude-3-5-sonnet-20240620-v1:0",
+												"${regionPrefix}.anthropic.claude-3-7-sonnet-20250219-v1:0",
 												{
 													"partition": {
 														"Ref": "AWS::Partition"
@@ -1086,7 +1054,7 @@
 										"echo \"export RESPONSE_MODEL=",
 										{
 											"Fn::Sub": [
-												"${regionPrefix}.anthropic.claude-3-5-sonnet-20240620-v1:0",
+												"${regionPrefix}.anthropic.claude-3-7-sonnet-20250219-v1:0",
 												{
 													"partition": {
 														"Ref": "AWS::Partition"
@@ -1117,7 +1085,7 @@
 										"echo \"export EVALUATION_MODEL=",
 										{
 											"Fn::Sub": [
-												"${regionPrefix}.anthropic.claude-3-5-sonnet-20240620-v1:0",
+												"${regionPrefix}.anthropic.claude-3-7-sonnet-20250219-v1:0",
 												{
 													"partition": {
 														"Ref": "AWS::Partition"
@@ -1305,7 +1273,7 @@
 										"  echo \"export EXTRACTION_MODEL=",
 										{
 											"Fn::Sub": [
-												"${regionPrefix}.anthropic.claude-3-5-sonnet-20240620-v1:0",
+												"${regionPrefix}.anthropic.claude-3-7-sonnet-20250219-v1:0",
 												{
 													"partition": {
 														"Ref": "AWS::Partition"
@@ -1338,7 +1306,7 @@
 										"  echo \"export RESPONSE_MODEL=",
 										{
 											"Fn::Sub": [
-												"${regionPrefix}.anthropic.claude-3-5-sonnet-20240620-v1:0",
+												"${regionPrefix}.anthropic.claude-3-7-sonnet-20250219-v1:0",
 												{
 													"partition": {
 														"Ref": "AWS::Partition"
@@ -1369,7 +1337,7 @@
 										"  echo \"export EVALUATION_MODEL=",
 										{
 											"Fn::Sub": [
-												"${regionPrefix}.anthropic.claude-3-5-sonnet-20240620-v1:0",
+												"${regionPrefix}.anthropic.claude-3-7-sonnet-20250219-v1:0",
 												{
 													"partition": {
 														"Ref": "AWS::Partition"
