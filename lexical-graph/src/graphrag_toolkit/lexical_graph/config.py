@@ -29,8 +29,8 @@ LLMType = Union[LLM, str]
 EmbeddingType = Union[BaseEmbedding, str]
 logger = logging.getLogger(__name__)
 
-DEFAULT_EXTRACTION_MODEL = 'us.anthropic.claude-3-5-sonnet-20240620-v1:0'
-DEFAULT_RESPONSE_MODEL = 'us.anthropic.claude-3-5-sonnet-20240620-v1:0'
+DEFAULT_EXTRACTION_MODEL = 'us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+DEFAULT_RESPONSE_MODEL = 'us.anthropic.claude-3-7-sonnet-20250219-v1:0'
 DEFAULT_EMBEDDINGS_MODEL = 'cohere.embed-english-v3'
 DEFAULT_RERANKING_MODEL = 'mixedbread-ai/mxbai-rerank-xsmall-v1'
 DEFAULT_EMBEDDINGS_DIMENSIONS = 1024
