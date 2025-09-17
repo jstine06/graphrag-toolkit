@@ -17,7 +17,7 @@ from graphrag_toolkit.lexical_graph.indexing.build.checkpoint import Checkpoint
 from graphrag_toolkit.lexical_graph.indexing.extract.docs_to_nodes import DocsToNodes
 from graphrag_toolkit.lexical_graph.indexing.extract.id_rewriter import IdRewriter
 
-from llama_index.core.node_parser import TextSplitter
+from llama_index.core.node_parser import NodeParser
 from llama_index.core.utils import iter_batch
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.extractors.interface import BaseExtractor
@@ -269,7 +269,7 @@ class ExtractionPipeline():
                 **kwargs (Any): Additional parameters for further customization of the pipeline or its
                     methods.
             """
-            if isinstance(c, TextSplitter):
+            if isinstance(c, NodeParser):
                 logger.debug(f'Wrapping {type(c).__name__} with IdRewriter')
                 return IdRewriter(inner=c, id_generator=id_generator)
             else:

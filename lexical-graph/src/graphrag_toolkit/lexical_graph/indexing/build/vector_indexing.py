@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import yaml
+import json
 from tqdm import tqdm
 from typing import List, Any, Union
 
@@ -11,7 +13,7 @@ from graphrag_toolkit.lexical_graph.indexing.node_handler import NodeHandler
 from graphrag_toolkit.lexical_graph.indexing.build.vector_batch_client import VectorBatchClient
 from graphrag_toolkit.lexical_graph.storage.constants import INDEX_KEY, ALL_EMBEDDING_INDEXES, DEFAULT_EMBEDDING_INDEXES
 
-from llama_index.core.schema import BaseNode
+from llama_index.core.schema import BaseNode, TextNode, Document
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +68,20 @@ class VectorIndexing(NodeHandler):
     
     vector_store:VectorStore
 
+    def _json_to_yaml(self, s:str) -> str:
+        try:
+            j = json.loads(s)
+            return yaml.dump(j, sort_keys=False)
+        except Exception:
+            return None
+
+    def _to_indexable_node(self, node:BaseNode) -> BaseNode:
+        indexable_node = node.model_copy()
+        indexable_content = self._json_to_yaml(node.get_content())
+        if indexable_content:
+            indexable_node.set_content(indexable_content)
+        return indexable_node
+
     def accept(self, nodes: List[BaseNode], **kwargs: Any):
         """
         Processes and yields nodes for vector indexing using a batch client.
@@ -109,7 +125,8 @@ class VectorIndexing(NodeHandler):
                         index_name = node.metadata[INDEX_KEY]['index']
                         if index_name in ALL_EMBEDDING_INDEXES:
                             index = batch_client.get_index(index_name)
-                            index.add_embeddings([node])
+
+                            index.add_embeddings([self._to_indexable_node(node)])
                     except Exception as e:
                         logger.exception('An error occurred while indexing vectors')
                         raise e

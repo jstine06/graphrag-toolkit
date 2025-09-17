@@ -33,6 +33,7 @@ DEFAULT_EXTRACTION_MODEL = 'us.anthropic.claude-3-7-sonnet-20250219-v1:0'
 DEFAULT_RESPONSE_MODEL = 'us.anthropic.claude-3-7-sonnet-20250219-v1:0'
 DEFAULT_EMBEDDINGS_MODEL = 'cohere.embed-english-v3'
 DEFAULT_RERANKING_MODEL = 'mixedbread-ai/mxbai-rerank-xsmall-v1'
+DEFAULT_BEDROCK_RERANKING_MODEL = 'cohere.rerank-v3-5:0'
 DEFAULT_EMBEDDINGS_DIMENSIONS = 1024
 DEFAULT_EXTRACTION_NUM_WORKERS = 2
 DEFAULT_EXTRACTION_BATCH_SIZE = 4
@@ -46,6 +47,7 @@ DEFAULT_INCLUDE_LOCAL_ENTITIES = False
 DEFAULT_INCLUDE_CLASSIFICATION_IN_ENTITY_ID = True
 DEFAULT_ENABLE_CACHE = False
 DEFAULT_METADATA_DATETIME_SUFFIXES = ['_date', '_datetime']
+DEFAULT_OPENSEARCH_ENGINE = 'nmslib'
 
 def _is_json_string(s):
     """
@@ -269,6 +271,7 @@ class _GraphRAGConfig:
     _embed_model: Optional[BaseEmbedding] = None
     _embed_dimensions: Optional[int] = None
     _reranking_model: Optional[str] = None
+    _bedrock_reranking_model: Optional[str] = None
     _extraction_num_workers: Optional[int] = None
     _extraction_num_threads_per_worker: Optional[int] = None
     _extraction_batch_size: Optional[int] = None
@@ -281,6 +284,7 @@ class _GraphRAGConfig:
     _include_classification_in_entity_id: Optional[bool] = None
     _enable_cache: Optional[bool] = None
     _metadata_datetime_suffixes: Optional[List[str]] = None
+    _opensearch_engine: Optional[str] = None
 
     @contextlib.contextmanager
     def _validate_sso_token(self, profile):
@@ -762,7 +766,6 @@ class _GraphRAGConfig:
     def include_local_entities(self, include_local_entities: bool) -> None:
         self._include_local_entities = include_local_entities
 
-    #_include_classification_in_entity_id
     @property
     def include_classification_in_entity_id(self) -> bool:   
         if self._include_classification_in_entity_id is None:
@@ -1128,6 +1131,29 @@ class _GraphRAGConfig:
             reranking_model (str): The name or identifier for the reranking model to be used.
         """
         self._reranking_model = reranking_model
+
+    @property
+    def bedrock_reranking_model(self) -> str:
+       
+        if self._bedrock_reranking_model is None:
+            self._bedrock_reranking_model = os.environ.get('BEDROCK_RERANKING_MODEL', DEFAULT_BEDROCK_RERANKING_MODEL)
+
+        return self._bedrock_reranking_model
+
+    @bedrock_reranking_model.setter
+    def bedrock_reranking_model(self, bedrock_reranking_model: str) -> None:
+        self._bedrock_reranking_model = bedrock_reranking_model
+
+    @property
+    def opensearch_engine(self) -> str:
+        if self._opensearch_engine is None:
+            self._opensearch_engine = os.environ.get('OPENSEARCH_ENGINE', DEFAULT_OPENSEARCH_ENGINE)
+
+        return self._opensearch_engine
+
+    @opensearch_engine.setter
+    def opensearch_engine(self, opensearch_engine: str) -> None:
+        self._opensearch_engine = opensearch_engine
 
 
 GraphRAGConfig = _GraphRAGConfig()

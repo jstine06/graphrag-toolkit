@@ -73,10 +73,9 @@ class ProcessorArgs():
         self.num_workers = kwargs.get('num_workers', 10)
         self.reranking_source_metadata_fn = kwargs.get('reranking_source_metadata_fn', None)
         self.source_formatter = kwargs.get('source_formatter', None)
-        self.statement_pruning_factor = kwargs.get('statement_pruning_factor', 0.1)
+        self.statement_pruning_factor = kwargs.get('statement_pruning_factor', 0.05)
         self.statement_pruning_threshold = kwargs.get('statement_pruning_threshold', None)
         self.enable_multipart_queries = kwargs.get('enable_multipart_queries', False)
-        self.enrich_query = kwargs.get('enrich_query', True)
         self.ec_keyword_provider = kwargs.get('ec_keyword_provider', 'llm')
         self.ec_entity_provider = kwargs.get('ec_entity_provider', 'vss')
         self.ec_max_entities = kwargs.get('ec_max_entities', 5)
@@ -84,8 +83,8 @@ class ProcessorArgs():
         self.ec_min_score_factor = kwargs.get('ec_min_score_factor', 0.1)
         self.ec_max_contexts = kwargs.get('ec_max_contexts', 3)
         self.ec_max_depth = kwargs.get('ec_max_depth', 2)
+        self.no_cache = kwargs.get('no_cache', None)
         
-
 
     def to_dict(self, new_args:Dict[str, Any]={}):
         """

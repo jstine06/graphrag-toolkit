@@ -1,8 +1,8 @@
 --only-binary :all:
 
 anthropic-bedrock==0.8.0
-boto3>=1.36.1
-botocore>=1.36.1
+boto3>=1.39.11
+botocore>=1.39.11
 json2xml==5.2.0
 llama-index-core==0.14.1
 llama-index-embeddings-bedrock==0.6.2

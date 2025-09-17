@@ -12,14 +12,17 @@ from llama_index.core.schema import QueryBundle, NodeWithScore, TextNode
 
 logger = logging.getLogger(__name__)
 
-def _get_reranked_entity_names_model(entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
+def _get_entity_token(entity):
+    return f'{entity.entity.value.lower()} ({entity.entity.classification.lower()})'
+
+def _get_reranked_entity_tokens_model(entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
 
     reranker = SentenceReranker(model=GraphRAGConfig.reranking_model, top_n=3)
     rank_query = QueryBundle(query_str=' '.join(keywords))
 
     reranked_values = reranker.postprocess_nodes(
         [
-            NodeWithScore(node=TextNode(text=entity.entity.value.lower()), score=0.0)
+            NodeWithScore(node=TextNode(text=_get_entity_token(entity)), score=0.0)
             for entity in entities
         ],
         rank_query
@@ -32,19 +35,21 @@ def _get_reranked_entity_names_model(entities:List[ScoredEntity], keywords:List[
 
     return reranked_entity_names
 
-def _get_reranked_entity_names_tfidf(entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
+def _get_reranked_entity_tokens_tfidf(entities:List[ScoredEntity], keywords:List[str]) -> Dict[str, float]:
     
-    entity_names = [entity.entity.value.lower() for entity in entities]
+    entity_names = [_get_entity_token(entity) for entity in entities]
     reranked_entity_names = score_values_with_tfidf(entity_names, keywords)
 
     return reranked_entity_names
 
-def _get_reranked_entity_names(entities:List[ScoredEntity], keywords:List[str], reranker:str) -> Dict[str, float]:
+def _get_reranked_entity_tokens(entities:List[ScoredEntity], keywords:List[str], reranker:str) -> Dict[str, float]:
 
-    if reranker == 'model':
-        results = _get_reranked_entity_names_model(entities, keywords) 
-    else:
-        results = _get_reranked_entity_names_tfidf(entities, keywords)
+    # if reranker == 'model':
+    #     results = _get_reranked_entity_tokens_model(entities, keywords) 
+    # else:
+    #     results = _get_reranked_entity_tokens_tfidf(entities, keywords)
+
+    results = _get_reranked_entity_tokens_tfidf(entities, keywords)
 
     results = {
         k:round(v, 4) for k,v in results.items()
@@ -54,13 +59,13 @@ def _get_reranked_entity_names(entities:List[ScoredEntity], keywords:List[str], 
 
     return results
 
-def _get_reranked_entities(entities:List[ScoredEntity], reranked_entity_names:Dict[str, float]) -> List[ScoredEntity]:
+def _get_reranked_entities(entities:List[ScoredEntity], reranked_entity_tokens:Dict[str, float]) -> List[ScoredEntity]:
 
     entity_id_map = {}
 
-    for reranked_entity_name, reranking_score in reranked_entity_names.items():
+    for reranked_entity_token, reranking_score in reranked_entity_tokens.items():
         for entity in entities:
-            if entity.entity.value.lower() == reranked_entity_name and entity.entity.entityId not in entity_id_map:
+            if _get_entity_token(entity) == reranked_entity_token and entity.entity.entityId not in entity_id_map:
                 entity.reranking_score = reranking_score
                 entity_id_map[entity.entity.entityId] = None
                 
@@ -76,5 +81,5 @@ def _get_reranked_entities(entities:List[ScoredEntity], reranked_entity_names:Di
     return entities
 
 def rerank_entities(entities:List[ScoredEntity], query_bundle:QueryBundle, keywords:List[str], reranker:str) -> List[ScoredEntity]:
-    all_reranked_entity_names = _get_reranked_entity_names(entities, [query_bundle.query_str] + keywords, reranker)
-    return _get_reranked_entities(entities, all_reranked_entity_names)
+    all_reranked_entity_tokens = _get_reranked_entity_tokens(entities, [query_bundle.query_str] + keywords, reranker)
+    return _get_reranked_entities(entities, all_reranked_entity_tokens)

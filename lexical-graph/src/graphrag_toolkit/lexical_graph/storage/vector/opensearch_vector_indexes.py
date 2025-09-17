@@ -233,25 +233,49 @@ def index_exists(endpoint, index_name, dimensions, writeable) -> bool:
     client = create_os_client(endpoint, pool_maxsize=1)
 
     embedding_field = 'embedding'
-    method = {
-        "name": "hnsw",
-        "space_type": "l2",
-        "engine": "nmslib",
-        "parameters": {"ef_construction": 256, "m": 48},
-    }
 
-    idx_conf = {
-        "settings": {"index": {"knn": True, "knn.algo_param.ef_search": 100}},
-        "mappings": {
-            "properties": {
-                embedding_field: {
-                    "type": "knn_vector",
-                    "dimension": dimensions,
-                    "method": method,
-                },
+    if GraphRAGConfig.opensearch_engine.lower() == 'faiss':
+
+        method = {
+            "name": "hnsw",
+            "space_type": "l2",
+            "engine": "faiss"
+        }
+
+        idx_conf = {
+            "settings": {"index": {"knn": True}},
+            "mappings": {
+                "properties": {
+                    embedding_field: {
+                        "type": "knn_vector",
+                        "dimension": dimensions,
+                        "method": method,
+                    },
+                }
             }
         }
-    }
+
+    else:
+
+        method = {
+            "name": "hnsw",
+            "space_type": "l2",
+            "engine": "nmslib",
+            "parameters": {"ef_construction": 256, "m": 48},
+        }
+
+        idx_conf = {
+            "settings": {"index": {"knn": True, "knn.algo_param.ef_search": 100}},
+            "mappings": {
+                "properties": {
+                    embedding_field: {
+                        "type": "knn_vector",
+                        "dimension": dimensions,
+                        "method": method,
+                    },
+                }
+            }
+        }
 
     index_exists = False
 
@@ -647,17 +671,12 @@ class OpenSearchIndex(VectorIndex):
             nodes, self.embed_model
         )
 
-        docs = []
-
         for node in nodes:
 
-            doc:BaseNode = node.copy()
-            doc.embedding = id_to_embed_map[node.node_id]
+            node.embedding = id_to_embed_map[node.node_id]
 
-            docs.append(doc)
-
-        if docs:
-            errors = self.client.index_results(docs)
+        if nodes:
+            errors = self.client.index_results(nodes)
             if errors:
                 logger.error(f'Errors while adding embeddings: {errors}')
         

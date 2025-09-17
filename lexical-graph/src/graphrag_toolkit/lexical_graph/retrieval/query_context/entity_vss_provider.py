@@ -12,6 +12,7 @@ from graphrag_toolkit.lexical_graph.retrieval.model import ScoredEntity
 from graphrag_toolkit.lexical_graph.retrieval.utils.entity_utils import rerank_entities
 from graphrag_toolkit.lexical_graph.retrieval.query_context.entity_provider_base import EntityProviderBase
 from graphrag_toolkit.lexical_graph.retrieval.query_context.entity_provider import EntityProvider
+from graphrag_toolkit.lexical_graph.retrieval.query_context.entity_from_top_statement_provider import EntityFromTopStatementProvider
 from graphrag_toolkit.lexical_graph.retrieval.processors import ProcessorArgs
 
 from llama_index.core.schema import QueryBundle
@@ -46,6 +47,7 @@ class EntityVSSProvider(EntityProviderBase):
             MATCH (t:`__Topic__`)<-[:`__BELONGS_TO__`]-(:`__Statement__`)
             <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity)
             WHERE {self.graph_store.node_id("t.topicId")} in $nodeIds
+            AND ebtity.class <> '__Local_Entity__'
             WITH DISTINCT entity
             MATCH (entity)-[r:`__SUBJECT__`|`__OBJECT__`]->()
             WITH entity, count(r) AS score ORDER BY score DESC LIMIT $limit
@@ -60,6 +62,7 @@ class EntityVSSProvider(EntityProviderBase):
             MATCH (c:`__Chunk__`)<-[:`__MENTIONED_IN__`]-(:`__Statement__`)
             <-[:`__SUPPORTS__`]-()<-[:`__SUBJECT__`|`__OBJECT__`]-(entity)
             WHERE {self.graph_store.node_id("c.chunkId")} in $nodeIds
+            AND entity.class <> '__Local_Entity__'
             WITH DISTINCT entity
             MATCH (entity)-[r:`__SUBJECT__`|`__OBJECT__`]->()
             WITH entity, count(r) AS score ORDER BY score DESC LIMIT $limit
@@ -96,8 +99,6 @@ class EntityVSSProvider(EntityProviderBase):
         logger.debug(f'entities for values: [values: {values}, {self.index_name}_ids: {node_ids}, entities: {entities}]')
 
         return entities
-                        
-
     
     def _get_entities(self, keywords:List[str], query_bundle:QueryBundle) -> List[ScoredEntity]:
 
@@ -109,7 +110,7 @@ class EntityVSSProvider(EntityProviderBase):
         add_to_entities_map(self._get_entities_by_keyword_match(keywords, query_bundle))
         add_to_entities_map(self._get_entities_for_values([query_bundle.query_str]))
         add_to_entities_map(self._get_entities_for_values(keywords))
-
+        
         return rerank_entities(list(all_entities_map.values()), query_bundle, keywords, self.args.reranker)
         
 

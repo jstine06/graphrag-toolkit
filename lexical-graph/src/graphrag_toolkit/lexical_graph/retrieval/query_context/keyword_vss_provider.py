@@ -55,7 +55,7 @@ class KeywordVSSProvider(KeywordProviderBase):
 
         self.llm = llm if llm and isinstance(llm, LLMCache) else LLMCache(
             llm=llm or GraphRAGConfig.extraction_llm,
-            enable_cache=GraphRAGConfig.enable_cache
+            enable_cache=GraphRAGConfig.enable_cache if not args.no_cache else not args.no_cache
         )
 
     def _get_node_ids(self, query_bundle:QueryBundle) -> List[str]:

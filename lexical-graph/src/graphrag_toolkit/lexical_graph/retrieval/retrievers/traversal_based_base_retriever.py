@@ -11,13 +11,12 @@ from graphrag_toolkit.lexical_graph.metadata import FilterConfig
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.vector.vector_store import VectorStore
 from graphrag_toolkit.lexical_graph.retrieval.query_context import KeywordProvider, KeywordVSSProvider, KeywordNLPProvider, KeywordProviderMode, PassThruKeywordProvider
-from graphrag_toolkit.lexical_graph.retrieval.query_context import EntityProvider, EntityVSSProvider, EntityContextProvider, QueryEnricher
-from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, SearchResult, ScoredEntity, EntityContexts
+from graphrag_toolkit.lexical_graph.retrieval.query_context import EntityProvider, EntityVSSProvider, EntityContextProvider
+from graphrag_toolkit.lexical_graph.retrieval.model import SearchResultCollection, SearchResult, EntityContexts
 from graphrag_toolkit.lexical_graph.retrieval.processors import *
 
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
-from llama_index.core.vector_stores.types import MetadataFilters
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +248,6 @@ class TraversalBasedBaseRetriever(BaseRetriever):
         
         start_retrieve = time.time()
 
-        query_bundle = QueryEnricher(self.graph_store, self.vector_store, self.args).enrich_query(query_bundle)
         self._init_entity_contexts(query_bundle)
         
         start_node_ids = self.get_start_node_ids(query_bundle)

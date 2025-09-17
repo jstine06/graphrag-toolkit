@@ -97,7 +97,7 @@ class CompositeTraversalBasedRetriever(TraversalBasedBaseRetriever):
             **kwargs
         )
 
-        self.query_decomposition = query_decomposition or QueryDecomposition(max_subqueries=self.args.max_subqueries)
+        self.query_decomposition = query_decomposition or QueryDecomposition(self.args, max_subqueries=self.args.max_subqueries)
 
         retrievers = retrievers or DEFAULT_TRAVERSAL_BASED_RETRIEVERS
 
