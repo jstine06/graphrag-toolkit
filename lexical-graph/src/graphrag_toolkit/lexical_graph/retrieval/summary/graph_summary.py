@@ -33,7 +33,7 @@ You are an expert AI assistant specialising in knowledge graphs. Based on any su
 ## Response format (separate each section with a new line)
 
 Domain: <Headline description of the domain>
-Scope: <The graph covers...>
+Scope: <The knowledge base covers...>
 Uses: <List valuable uses>
 Example questions: <10 example questions>
 '''
