@@ -3,11 +3,12 @@
 
 import logging
 import time
-from typing import List, Dict, Any, Annotated, Optional
+import json
+from typing import List, Dict, Any, Annotated, Optional, Union
 from pydantic import Field
 
 from graphrag_toolkit.lexical_graph import LexicalGraphQueryEngine
-from graphrag_toolkit.lexical_graph import TenantId, TenantIdType, to_tenant_id, DEFAULT_TENANT_ID
+from graphrag_toolkit.lexical_graph import TenantId, TenantIdType, to_tenant_id, DEFAULT_TENANT_ID, DEFAULT_TENANT_NAME
 from graphrag_toolkit.lexical_graph.storage.graph import GraphStore
 from graphrag_toolkit.lexical_graph.storage.vector import VectorStore
 from graphrag_toolkit.lexical_graph.retrieval.summary import GraphSummary, get_domain
@@ -53,7 +54,7 @@ def tool_search(graph_store:GraphStore, tenant_ids:List[TenantId]):
 
     return search_for_tool
 
-def query_tenant_graph(graph_store:GraphStore, vector_store:VectorStore, tenant_id:TenantId, domain:str):
+def query_tenant_graph(graph_store:GraphStore, vector_store:VectorStore, tenant_id:TenantId, domain:str, **kwargs):
     
     description = f'A natural language query related to the domain of {domain}' if domain else 'A natural language query'
     
@@ -63,7 +64,8 @@ def query_tenant_graph(graph_store:GraphStore, vector_store:VectorStore, tenant_
             graph_store, 
             vector_store,
             tenant_id=tenant_id,
-            enable_multipart_queries=True
+            enable_multipart_queries=True,
+            **kwargs
         )
 
         start = time.time()
@@ -72,7 +74,7 @@ def query_tenant_graph(graph_store:GraphStore, vector_store:VectorStore, tenant_
         
         end = time.time()
 
-        results = [n.text for n in response]
+        results = [json.loads(n.text) for n in response]
 
         logger.debug(f'[{tenant_id}]: {query} [{len(results)} results, {int((end-start) * 1000)} millis]')
         
@@ -91,9 +93,25 @@ def get_tenant_ids(graph_store:GraphStore):
 
     results = graph_store.execute_query(cypher)
 
-    return [to_tenant_id(result['tenant_id']) for result in results]
+    return [result['tenant_id'] for result in results]
 
-def create_mcp_server(graph_store:GraphStore, vector_store:VectorStore, tenant_ids:Optional[List[TenantIdType]]=None):
+TenantConfigType = Union[List[TenantIdType], Dict[str, Dict[str, Any]]]
+
+"""
+Config: 
+
+{
+    '<tenant_id>': {
+        'description': '<short description - optional>',
+        'refresh': True|False,
+        'args': {
+            LexicalGraphQueryEngine args
+        }
+    }
+}
+"""
+
+def create_mcp_server(graph_store:GraphStore, vector_store:VectorStore, tenant_ids:Optional[TenantConfigType]=None, **kwargs):
 
     try:
         from fastmcp import FastMCP
@@ -107,22 +125,38 @@ def create_mcp_server(graph_store:GraphStore, vector_store:VectorStore, tenant_i
 
     graph_summary = GraphSummary(graph_store)
 
+    tenant_id_configs = {}
+
     if not tenant_ids:
-        tenant_ids = [DEFAULT_TENANT_ID]
-        tenant_ids.extend(get_tenant_ids(graph_store))
+        tenant_id_configs[DEFAULT_TENANT_NAME] = {}
+        tenant_id_configs.update({tenant_id:{} for tenant_id in get_tenant_ids(graph_store)})
     else:
-        tenant_ids = [to_tenant_id(tenant_id) for tenant_id in tenant_ids]
+        if isinstance(tenant_ids, list):
+            tenant_id_configs.update({str(tenant_id):{} for tenant_id in tenant_ids})
+        else:
+            tenant_id_configs.update(tenant_ids)
     
-    for tenant_id in tenant_ids:
+    for tenant_id_name, tenant_id_config in tenant_id_configs.items():
+
+        tenant_id = to_tenant_id(tenant_id_name)
+
+        refresh = tenant_id_config.get('refresh', False)
         
-        summary = graph_summary.create_graph_summary(tenant_id)
+        summary = graph_summary.create_graph_summary(tenant_id, tenant_id_config.get('description', ''), refresh=refresh)
 
         if summary:
+
             domain = get_domain(summary)
-            
+
+            args = kwargs.copy()
+            args.update(tenant_id_config.get('args', {}))
+
+            logger.debug(f'Adding tool: [tenant_id: {tenant_id}, domain: {domain}, args: {args}]')
+
+
             mcp.add_tool(
                 Tool.from_function(
-                    fn=query_tenant_graph(graph_store, vector_store, tenant_id, domain),
+                    fn=query_tenant_graph(graph_store, vector_store, tenant_id, domain, **args),
                     name = str(tenant_id),
                     description = summary
                 )

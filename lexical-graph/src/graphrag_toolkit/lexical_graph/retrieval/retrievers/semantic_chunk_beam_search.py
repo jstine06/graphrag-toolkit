@@ -42,8 +42,7 @@ class SemanticChunkBeamGraphSearch(SemanticGuidedBaseChunkRetriever):
         // get chunk neighbours (semantic beam search)
         MATCH (e)-[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->()-[:`__BELONGS_TO__`]->()-[:`__MENTIONED_IN__`]->(c)
         WHERE {self.graph_store.node_id('c.chunkId')} = $chunkId
-        WITH c, COLLECT(DISTINCT e) AS entities
-        UNWIND entities AS entity
+        WITH DISTINCT e AS entity
         MATCH (entity)-[:`__SUBJECT__`|`__OBJECT__`]->()-[:`__SUPPORTS__`]->()-[:`__BELONGS_TO__`]->()-[:`__MENTIONED_IN__`]->(e_neighbors)
         RETURN DISTINCT {self.graph_store.node_id('e_neighbors.chunkId')} as chunkId
         """
