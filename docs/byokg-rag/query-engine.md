@@ -188,7 +188,7 @@ The engine uses different prompts for different iterations:
 
 ```python
 # Initialize with graph store
-query_engine = ByoKGQueryEngine(graph_store=neo4j_store)
+query_engine = ByoKGQueryEngine(graph_store=graph_store)
 
 # Process a question
 question = "What are the side effects of aspirin?"
@@ -304,6 +304,6 @@ query_engine = ByoKGQueryEngine(
 # Fine-tune iteration counts for different strategies
 context = query_engine.query(
     question,
-    iterations=4,        # Multi-strategy iterations
+    iterations=2,        # Multi-strategy iterations
     cypher_iterations=2  # Cypher retry iterations
 )
