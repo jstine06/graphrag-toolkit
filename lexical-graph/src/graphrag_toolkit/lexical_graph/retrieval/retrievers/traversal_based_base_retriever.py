@@ -192,10 +192,6 @@ class TraversalBasedBaseRetriever(BaseRetriever):
 
             start = time.time()
 
-            if not self.args.ec_max_contexts or self.args.ec_max_contexts < 1:
-                logger.debug(f'Ignoring retrieval of entity contexts because ec_max_contexts is {self.args.ec_max_contexts}')
-                return
-
             if self.args.ec_keyword_provider == 'vss':
                 keyword_provider = KeywordVSSProvider(self.graph_store, self.vector_store, self.args, self.filter_config)
             elif self.args.ec_keyword_provider == 'llm':
@@ -228,6 +224,7 @@ class TraversalBasedBaseRetriever(BaseRetriever):
             logger.debug(f'Retrieved {len(entity_contexts.contexts)} entity contexts ({duration_ms:.2f}ms)')
 
             self.entity_contexts.contexts.extend(entity_contexts.contexts)
+            self.entity_contexts.keywords.extend(keywords)
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         """

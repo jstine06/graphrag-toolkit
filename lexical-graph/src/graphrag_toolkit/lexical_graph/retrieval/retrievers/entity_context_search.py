@@ -125,7 +125,7 @@ class EntityContextSearch(TraversalBasedBaseRetriever):
 
         sub_retriever = self._get_sub_retriever()
         
-        entity_contexts = self.entity_contexts.context_strs
+        entity_contexts = self.entity_contexts.all_context_strs
 
         search_results = []
 

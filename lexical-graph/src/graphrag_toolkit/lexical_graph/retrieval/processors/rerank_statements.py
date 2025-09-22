@@ -77,9 +77,9 @@ class RerankStatements(ProcessorBase):
         splitter = TokenTextSplitter(chunk_size=25, chunk_overlap=5)
 
         match_values = splitter.split_text(query.query_str.lower())
-        
-        extras = entity_contexts.context_strs
 
+        extras = entity_contexts.all_context_strs
+    
         match_values = [m for m in match_values if m not in extras] # order in entity context takes precedence
         num_primary_match_values = len(match_values) if not extras else len(match_values) + max(int(len(extras)/2), 1) # first entity contexts are important as match values
 
@@ -115,7 +115,7 @@ class RerankStatements(ProcessorBase):
         """
         logger.debug('Reranking with SentenceReranker')
 
-        extras = ', '.join(entity_contexts.context_strs)
+        extras = ', '.join(entity_contexts.all_context_strs)
 
         rank_query = (
             query 
@@ -141,7 +141,7 @@ class RerankStatements(ProcessorBase):
     def _score_values_with_bedrock(self, values:List[str], query:QueryBundle, entity_contexts:EntityContexts) -> Dict[str, float]:
         logger.debug('Reranking with Bedrock')
 
-        extras = ', '.join(entity_contexts.context_strs)
+        extras = ', '.join(entity_contexts.all_context_strs)
 
         rank_query = (
             query.query_str 

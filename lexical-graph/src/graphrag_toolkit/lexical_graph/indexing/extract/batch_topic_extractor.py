@@ -14,7 +14,7 @@ from datetime import datetime
 from graphrag_toolkit.lexical_graph import GraphRAGConfig, BatchJobError
 from graphrag_toolkit.lexical_graph.utils import LLMCache, LLMCacheType
 from graphrag_toolkit.lexical_graph.indexing.utils.topic_utils import parse_extracted_topics, format_list, format_text
-from graphrag_toolkit.lexical_graph.indexing.utils.batch_inference_utils import create_inference_inputs_for_messages, create_and_run_batch_job, download_output_files, process_batch_output, split_nodes
+from graphrag_toolkit.lexical_graph.indexing.utils.batch_inference_utils import create_inference_inputs_for_messages, create_and_run_batch_job, download_output_files, process_batch_output, split_nodes, get_request_body
 from graphrag_toolkit.lexical_graph.indexing.utils.batch_inference_utils import get_file_size_mb, get_file_sizes_mb
 from graphrag_toolkit.lexical_graph.indexing.constants import TOPICS_KEY
 from graphrag_toolkit.lexical_graph.indexing.prompts import EXTRACT_TOPICS_PROMPT
@@ -190,28 +190,6 @@ class BatchTopicExtractor(BaseExtractor):
 
             # 1 - Create Record Files (.jsonl)
 
-            messages_batch = []
-            for node in node_batch:
-                classifications = self.entity_classification_provider(node)
-                topics = self.topic_provider(node)
-                text = format_text(
-                    self._get_metadata_or_default(node.metadata, self.source_metadata_field, node.text) 
-                    if self.source_metadata_field 
-                    else node.text
-                )
-                messages = self.llm.llm._get_messages(
-                    PromptTemplate(self.prompt_template), 
-                    text=text,
-                    preferred_entity_classifications=format_list(classifications),
-                    preferred_topics=format_list(topics)
-                )
-                messages_batch.append(messages)
-
-            json_inputs = create_inference_inputs_for_messages(
-                self.llm.llm, 
-                node_batch, 
-                messages_batch
-            )
 
             root_dir = os.path.join(self.batch_inference_dir, timestamp, batch_suffix)
             input_dir = os.path.join(root_dir, 'inputs')
@@ -221,14 +199,39 @@ class BatchTopicExtractor(BaseExtractor):
 
             input_filepath = os.path.join(input_dir, input_filename)
 
-            logger.debug(f'[Topic batch inputs] Writing {len(json_inputs)} records to {input_filename}')
+            logger.debug(f'[Topic batch inputs] Writing records to {input_filename}')
+
+            llm = self.llm.llm
+
+            inference_parameters = llm._get_all_kwargs() 
+            record_count = 0
 
             with open(input_filepath, 'w') as file:
-                for item in json_inputs:
-                    json.dump(item, file)
+
+                for node in node_batch:
+                    classifications = self.entity_classification_provider(node)
+                    topics = self.topic_provider(node)
+                    text = format_text(
+                        self._get_metadata_or_default(node.metadata, self.source_metadata_field, node.text) 
+                        if self.source_metadata_field 
+                        else node.text
+                    )
+                    messages = llm._get_messages(
+                        PromptTemplate(self.prompt_template), 
+                        text=text,
+                        preferred_entity_classifications=format_list(classifications),
+                        preferred_topics=format_list(topics)
+                    )
+                    json_structure = {
+                        'recordId': node.node_id,
+                        'modelInput': get_request_body(llm, messages, inference_parameters)
+                    }
+                    json.dump(json_structure, file)
                     file.write('\n')
 
-            logger.debug(f'[Topic batch inputs] Batch input file ready [file: {input_filepath} ({get_file_size_mb(input_filepath)} MB)]')
+                    record_count += 1
+
+            logger.debug(f'[Topic batch inputs] Batch input file ready [num_records: {record_count}, file: {input_filepath} ({get_file_size_mb(input_filepath)} MB)]')
 
             # 2 - Upload records to s3
             if self.batch_config.key_prefix:

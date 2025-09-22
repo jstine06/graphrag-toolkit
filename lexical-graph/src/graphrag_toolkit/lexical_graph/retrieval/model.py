@@ -181,6 +181,7 @@ class EntityContexts(BaseModel):
     model_config = ConfigDict(strict=True)
 
     contexts: List[EntityContext]=[]
+    keywords: List[str]=[]
 
     @property
     def context_strs(self):
@@ -188,6 +189,16 @@ class EntityContexts(BaseModel):
             ', '.join([entity.entity.value.lower() for entity in entity_context.entities])
             for entity_context in self.contexts
         ]
+    
+    @property
+    def keywords_str(self):
+        return ', '.join(keyword for keyword in self.keywords)
+    
+    @property
+    def all_context_strs(self):
+        all_contexts = [self.keywords_str] if self.keywords else []
+        all_contexts.extend(self.context_strs)
+        return all_contexts
 
 
 class SearchResultCollection(BaseModel):

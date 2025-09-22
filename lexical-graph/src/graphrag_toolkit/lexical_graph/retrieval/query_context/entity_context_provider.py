@@ -26,8 +26,6 @@ class EntityContextProvider():
         
         start = time.time()
 
-        max_num_neighbours = self.args.ec_max_depth + 2
-        
         entity_ids = [entity.entity.entityId for entity in entities if entity.score > 0] 
         
         excluded_entity_ids = set()
@@ -47,7 +45,7 @@ class EntityContextProvider():
             
             current_entity_id_contexts = { entity_id: entity_id_context  }
 
-            for num_neighbours in range (max_num_neighbours, 2, -1):
+            for depth in range (self.args.ec_max_depth, 1, -1):
 
                 cypher = f"""
                 // get next level in tree
@@ -56,7 +54,8 @@ class EntityContextProvider():
                 WHERE  {self.graph_store.node_id('entity.entityId')} IN $entityIds
                 AND NOT {self.graph_store.node_id('other.entityId')} IN $excludeEntityIds
                 AND other.class <> '__Local_Entity__'
-                WITH entity, collect(DISTINCT {self.graph_store.node_id('other.entityId')})[0..$numNeighbours] AS others, count(r) AS score ORDER BY score DESC
+                WITH entity, other, count(r) AS score ORDER BY score DESC
+                WITH entity, collect(DISTINCT {self.graph_store.node_id('other.entityId')})[0..$numNeighbours] AS others
                 RETURN {{
                     {node_result('entity', self.graph_store.node_id('entity.entityId'), properties=['value', 'class'])},
                     others: others
@@ -66,7 +65,7 @@ class EntityContextProvider():
                 params = {
                     'entityIds': list(start_entity_ids),
                     'excludeEntityIds': list(excluded_entity_ids),
-                    'numNeighbours': num_neighbours
+                    'numNeighbours': depth + 2
                 }
 
                 results = self.graph_store.execute_query(cypher, params)

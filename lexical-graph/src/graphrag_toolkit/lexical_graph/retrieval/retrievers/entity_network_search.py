@@ -112,7 +112,7 @@ class EntityNetworkSearch(TraversalBasedBaseRetriever):
 
             futures = [
                 executor.submit(self._get_node_ids, QueryBundle(query_str=entity_context_str))
-                for entity_context_str in self.entity_contexts.context_strs
+                for entity_context_str in self.entity_contexts.all_context_strs
             ]
             
             executor.shutdown()

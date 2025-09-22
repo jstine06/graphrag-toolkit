@@ -434,7 +434,7 @@ class LexicalGraphQueryEngine(BaseQueryEngine):
         if not contexts_dump:
             return []
  
-        return EntityContexts.model_validate(contexts_dump).context_strs
+        return EntityContexts.model_validate(contexts_dump).all_context_strs
 
 
     def retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:

@@ -176,7 +176,7 @@ class S3BasedDocs(NodeHandler):
         ]
 
         start = time.time()
-        logger.debug(f'Started getting source documents from S3 [bucket: {self.bucket_name}, prefixes: {source_doc_prefixes}]')
+        logger.debug(f'Started getting source documents from S3 [bucket: {self.bucket_name}, num_prefixes: {len(source_doc_prefixes)}]')
 
         doc_count = 0
 
