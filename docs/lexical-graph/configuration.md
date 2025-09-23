@@ -21,7 +21,11 @@ The lexical-graph also allows you to set the logging level and apply logging fil
 
 ### GraphRAGConfig
 
-`GraphRAGConfig` allows you to configure LLMs, embedding models, and the extract and build processes. The configuration includes the following parameters:
+`GraphRAGConfig` allows you to configure LLMs, embedding models, and the extract and build processes. 
+
+**Important**: If you want to change any of these values, do so early in your code, prior to creating a graph store or vector store.
+
+The configuration includes the following parameters:
 
 | Parameter  | Description | Default Value | Environment Variable |
 | ------------- | ------------- | ------------- | ------------- |

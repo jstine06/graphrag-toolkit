@@ -22,7 +22,7 @@ from llama_index.core.schema import QueryBundle
 logger = logging.getLogger(__name__)
 
 IDENTIFY_RELEVANT_ENTITIES_PROMPT = '''
-You are an expert AI assistant specialising in knowledge graphs. Given a user-supplied question and a piece of context, your task is to identify up to {num_keywords} of the most relevant keywords from the context. Return them, most relevant first. You do not have to return the maximum number of keywords; you can return fewer. 
+You are an expert AI assistant specialising in knowledge graphs. Given a user-supplied question and a piece of context, your task is to identify up to {num_keywords} of the most relevant named entities from the question and keywords from the context. Return them, most relevant first. You do not have to return the maximum number of items; you can return fewer. 
 
 <question>
 {question}
@@ -32,7 +32,7 @@ You are an expert AI assistant specialising in knowledge graphs. Given a user-su
 {context}
 </context>
 
-Put the relevant keywords on separate lines. Do not provide any other explanatory text. Do not surround the output with tags. Do not exceed {num_keywords} keywords in your response.
+Put the relevant items on separate lines. Do not provide any other explanatory text. Do not surround the output with tags. Do not exceed {num_keywords} items in your response.
 '''
 
 class KeywordVSSProvider(KeywordProviderBase):

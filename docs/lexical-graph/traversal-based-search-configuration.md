@@ -56,7 +56,7 @@ When configuring search functionality, you can use the following parameters to c
 
 #####  `max_search_results`
 
-Defines the maximum number of search results to return. Each search result contains one or more statements that belong to the same topic (and source). If you set this to `None`, all matching search results will be returned. The default value is `5`.
+Defines the maximum number of search results to return. Each search result contains one or more statements that belong to the same topic (and source). If you set this to `None`, all matching search results will be returned. The default value is `10`.
 
 #####  `max_statements_per_topic`
 
@@ -68,7 +68,7 @@ Limits the total number of statements across the entire resultset. If you set th
 
 #####  `statement_pruning_factor`
 
-This parameter helps filter out lower-quality statements based on a percentage of the highest statement score in the entire set of results. Any statement with a score less than `<maximum_statement_score> * statement_pruning_factor` will be removed from the results. The default value is `0.1` (10% of the maximum score).
+This parameter helps filter out lower-quality statements based on a percentage of the highest statement score in the entire set of results. Any statement with a score less than `<maximum_statement_score> * statement_pruning_factor` will be removed from the results. The default value is `0.05` (5% of the maximum score).
 
 ##### `statement_pruning_threshold`
 
@@ -259,11 +259,9 @@ You can configure entity network generation using the following parameters:
 
 ##### `ec_max_depth`
 
-Determines the maximum path depth in entity networks. 
+Determines the maximum number of entities in each entity network path. 
 
-This value also controls the entity count per level according to depth. For a depth-2 traversal: 3 entities at depth 1, 2 entities at depth 2. For a depth-3 traversal: 4 entities at depth 1, 3 entities at depth 2, 2 entities at depth 3. 
-
-The default value is `2`.
+The default value is `3`.
 
 ##### `ec_max_contexts`
 
@@ -271,11 +269,11 @@ Limits the number of entity contexts returned by providers. Note: Multiple entit
 
 ##### `ec_max_score_factor`
 
-Filters out entities whose degree centrality exceeds a threshold based on a percentage of the degree centrality of the top entity. The default value is `15` (1500% of the top entity's score).
+Filters out entities whose degree centrality exceeds a threshold based on a percentage of the degree centrality of the top entity. The default value is `10` (1000% of the top entity's score).
 
 ##### `ec_min_score_factor`
 
-Filters out entities whose degree centrality falls below a threshold based on a percentage of the degree centrality of the top entity. The default value is `0.25` (25% of the top entity's score).
+Filters out entities whose degree centrality falls below a threshold based on a percentage of the degree centrality of the top entity. The default value is `0.1` (10% of the top entity's score).
 
 #### Example
 
