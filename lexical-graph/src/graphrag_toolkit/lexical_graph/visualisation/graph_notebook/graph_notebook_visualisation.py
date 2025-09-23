@@ -378,6 +378,26 @@ class GraphNotebookVisualisation():
         
         formatting_config = self.formatting_config or f'''
         {{  
+          "physics": {{
+            "simulationDuration": 1500,
+            "disablePhysicsAfterInitialSimulation": false,
+            "minVelocity": 0.75,
+            "barnesHut": {{
+              "centralGravity": 0.3,
+              "gravitationalConstant": -10000,
+              "springLength": 95,
+              "springConstant": 0.04,
+              "damping": 0.09,
+              "avoidOverlap": 0.1
+            }},
+            "solver": "barnesHut",
+            "enabled": true,
+            "adaptiveTimestep": true,
+            "stabilization": {{
+              "enabled": true,
+              "iterations": 1
+            }}
+          }},
           "nodes": {{
                "shape": "icon",
                "icon": {{
@@ -503,6 +523,26 @@ class GraphNotebookVisualisation():
         
         formatting_config = '''
         {
+            "physics": {{
+                "simulationDuration": 1500,
+                "disablePhysicsAfterInitialSimulation": false,
+                "minVelocity": 0.75,
+                "barnesHut": {{
+                "centralGravity": 0.3,
+                "gravitationalConstant": -10000,
+                "springLength": 95,
+                "springConstant": 0.04,
+                "damping": 0.09,
+                "avoidOverlap": 0.1
+                }},
+                "solver": "barnesHut",
+                "enabled": true,
+                "adaptiveTimestep": true,
+                "stabilization": {{
+                "enabled": true,
+                "iterations": 1
+                }}
+            }},
             "edges": {
                 "color": {
                 "inherit": false

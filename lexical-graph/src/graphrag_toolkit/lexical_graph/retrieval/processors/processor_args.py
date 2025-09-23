@@ -79,7 +79,7 @@ class ProcessorArgs():
         self.ec_keyword_provider = kwargs.get('ec_keyword_provider', 'vss') #llm
         self.ec_entity_provider = kwargs.get('ec_entity_provider', 'vss')
         self.ec_max_entities = kwargs.get('ec_max_entities', 5)
-        self.ec_max_score_factor = kwargs.get('ec_max_score_factor', 2)
+        self.ec_max_score_factor = kwargs.get('ec_max_score_factor', 10)
         self.ec_min_score_factor = kwargs.get('ec_min_score_factor', 0.1)
         self.ec_max_contexts = kwargs.get('ec_max_contexts', 3)
         self.ec_max_depth = kwargs.get('ec_max_depth', 3)
