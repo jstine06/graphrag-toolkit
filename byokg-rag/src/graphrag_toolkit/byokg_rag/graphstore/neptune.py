@@ -478,8 +478,7 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
                 props['parameters'] = json.dumps(parameters)
 
             response = self.neptune_data_client.execute_open_cypher_query(
-                openCypherQuery=cypher,
-                **props
+                openCypherQuery=cypher
             )
             return response['results']
         except Exception as e:
