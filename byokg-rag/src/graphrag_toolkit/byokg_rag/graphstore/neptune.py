@@ -470,8 +470,13 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
 
     def execute_query(self, cypher, parameters={}):
         logger.info("GraphQuery::", cypher)
+
+        props = {}
+        if parameters:
+                props['parameters'] = json.dumps(parameters)
+
         response = self.neptune_data_client.execute_open_cypher_query(
             openCypherQuery=cypher,
-            parameters=json.dumps(parameters)
+            **props
         )
         return response['results']
