@@ -469,14 +469,21 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
 
 
     def execute_query(self, cypher, parameters={}):
-        logger.info("GraphQuery::", cypher)
+        try:
+            logger.info("GraphQuery::", cypher)
+            print(f"GraphQuery:: {cypher}")
 
-        props = {}
-        if parameters:
+            props = {}
+            if parameters:
                 props['parameters'] = json.dumps(parameters)
 
-        response = self.neptune_data_client.execute_open_cypher_query(
-            openCypherQuery=cypher,
-            **props
-        )
-        return response['results']
+            response = self.neptune_data_client.execute_open_cypher_query(
+                openCypherQuery=cypher,
+                **props
+            )
+            return response['results']
+        except Exception as e:
+            print(f"Error executing Neptune DB query: {e}")
+            print(f"Query: {cypher}")
+            print(f"Parameters: {parameters}")
+            raise
