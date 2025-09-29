@@ -125,6 +125,7 @@ class ByoKGQueryEngine:
         Returns:
             Tuple of (retrieved context, final answers)
         """
+        print("In ByoKGQueryEngine.query")
         retrieved_context: List[str] = []
         explored_entities: Set[str] = set()
         opencypher_answers: List[str] = []
