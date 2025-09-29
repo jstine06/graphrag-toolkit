@@ -470,6 +470,7 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
 
     def execute_query(self, cypher, parameters={}):
         try:
+            print("How is this possible?")
             logger.info("GraphQuery::", cypher)
             print(f"GraphQuery:: {cypher}")
             print(f"parameters: {parameters}")
