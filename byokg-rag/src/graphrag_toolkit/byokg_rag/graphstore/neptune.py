@@ -477,6 +477,8 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
             if parameters:
                 props['parameters'] = json.dumps(parameters)
 
+            print("Hard coded removal of paramaters")
+
             response = self.neptune_data_client.execute_open_cypher_query(
                 openCypherQuery=cypher
             )
