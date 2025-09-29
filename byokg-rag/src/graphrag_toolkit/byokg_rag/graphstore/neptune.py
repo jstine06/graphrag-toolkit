@@ -472,7 +472,7 @@ class NeptuneDBGraphStore(BaseNeptuneGraphStore):
         print("Start of execute_query")
         try:
             print("How is this possible?")
-            logger.info("GraphQuery::", cypher)
+            # logger.info("GraphQuery::", cypher)
             print(f"GraphQuery:: {cypher}")
             print(f"parameters: {parameters}")
             print("Before 'parameters'")
